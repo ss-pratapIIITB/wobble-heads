@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Wobble head crowd</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0c0d10; color: #f5f5f7; font-family: system-ui, -apple-system, sans-serif; }
+    #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .hud {
+      position: absolute; top: 16px; left: 16px; width: 312px; z-index: 2;
+      background: rgba(16, 17, 21, 0.86); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px; padding: 14px 16px; backdrop-filter: blur(14px);
+    }
+    .hud h1 { font-size: 15px; margin: 0 0 4px; font-weight: 650; }
+    .hud p { margin: 0 0 10px; color: #a1a1aa; font-size: 12px; line-height: 1.45; }
+    label { display: flex; justify-content: space-between; font-size: 11px; color: #d4d4d8; margin-top: 8px; }
+    label span { color: #a1a1aa; font-variant-numeric: tabular-nums; }
+    input[type=range] { width: 100%; margin: 3px 0 0; }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    .row button {
+      flex: 1; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer;
+      background: #3b82f6; color: white; font-weight: 600; font-size: 12px;
+    }
+    .row button.ghost { background: #27272a; }
+    #state { margin-top: 10px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #4ade80; }
+    #state.trip { color: #fb7185; }
+    #state.air { color: #fbbf24; }
+    .choices {
+      position: absolute; right: 16px; bottom: 16px; z-index: 2; width: min(430px, calc(100vw - 32px));
+      display: grid; gap: 8px;
+    }
+    .choice {
+      background: rgba(16, 17, 21, 0.9); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 10px 12px; cursor: pointer;
+    }
+    .choice:hover, .choice.selected { border-color: #3b82f6; background: rgba(37, 99, 235, 0.18); }
+    .choice b { display: block; font-size: 13px; }
+    .choice span { color: #a1a1aa; font-size: 11px; }
+    .hint {
+      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+      z-index: 1; color: #d4d4d8; font-size: 12px; background: rgba(0,0,0,0.5);
+      padding: 6px 12px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+    }
+    #load {
+      position: absolute; inset: 0; display: grid; place-items: center; z-index: 3;
+      background: #0c0d10; font-size: 14px; color: #a1a1aa; text-align: center; padding: 24px;
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="load">Loading a small crowd…</div>
+  <canvas id="c"></canvas>
+  <div class="hud">
+    <h1>Wobble-head crowd</h1>
+    <p>You are the man in the suit. Others wander on their own. They turn like people, not tanks. Sliders apply to everyone.</p>
+    <label>Head mass <span id="massV">2.8</span></label>
+    <input id="mass" type="range" min="0.4" max="9" step="0.1" value="2.8">
+    <label>Wobbles per second <span id="hzV">1.6</span></label>
+    <input id="hz" type="range" min="1" max="4" step="0.1" value="1.6">
+    <label>Bend amount <span id="ampV">3.2</span></label>
+    <input id="amp" type="range" min="1" max="5" step="0.1" value="3.2">
+    <label>Wobble travel <span id="travelV">3.8</span></label>
+    <input id="travel" type="range" min="1" max="5" step="0.1" value="3.8">
+    <label>Settle <span id="dampV">0.16</span></label>
+    <input id="damp" type="range" min="0.08" max="0.55" step="0.01" value="0.16">
+    <label>Head size <span id="sizeV">2.1</span></label>
+    <input id="size" type="range" min="1" max="3.4" step="0.05" value="2.1">
+    <label>Trip lean <span id="tripV">0.55</span></label>
+    <input id="trip" type="range" min="0.22" max="1.2" step="0.02" value="0.55">
+    <div class="row">
+      <button id="nudge" type="button">Nudge all heads</button>
+      <button id="reset" class="ghost" type="button">Reset you</button>
+    </div>
+    <div id="state">Idle</div>
+  </div>
+  <div class="choices">
+    <div class="choice" data-choice="human-faces" onclick="toggleSelect(this)">
+      <b>A — This is the look</b>
+      <span>Several people, different bodies, shared wobble, they turn while walking.</span>
+    </div>
+    <div class="choice" data-choice="more-scans" onclick="toggleSelect(this)">
+      <b>B — More photoreal scans</b>
+      <span>Even more real faces, we’ll composite them in Blender.</span>
+    </div>
+    <div class="choice" data-choice="full-photoreal-body" onclick="toggleSelect(this)">
+      <b>C — Photoreal body too</b>
+      <span>Skin, clothes, and body should all look photographed.</span>
+    </div>
+  </div>
+  <div class="hint">WASD you · Space jump · others wander · drag to look</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+
+    const CDN = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/models/gltf';
+    const URLS = {
+      rpm: CDN + '/readyplayer.me.glb',
+      michelle: CDN + '/Michelle.glb',
+      soldier: CDN + '/Soldier.glb',
+    };
+    const FACE_OFFSET = -Math.PI / 2;
+    const TURN_SPEED = 2.8;
+    const WALK_SPEED = 1.35;
+
+    const canvas = document.getElementById('c');
+    const loadEl = document.getElementById('load');
+    const stateEl = document.getElementById('state');
+    const sliders = {
+      mass: document.getElementById('mass'),
+      hz: document.getElementById('hz'),
+      amp: document.getElementById('amp'),
+      travel: document.getElementById('travel'),
+      damp: document.getElementById('damp'),
+      size: document.getElementById('size'),
+      trip: document.getElementById('trip'),
+    };
+    for (const [id, el] of Object.entries(sliders)) {
+      const label = { mass: 'massV', hz: 'hzV', amp: 'ampV', travel: 'travelV', damp: 'dampV', size: 'sizeV', trip: 'tripV' }[id];
+      el.addEventListener('input', () => { document.getElementById(label).textContent = el.value; });
+    }
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#12141a');
+    scene.fog = new THREE.Fog('#12141a', 14, 44);
+    scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 80);
+    camera.position.set(0, 2.2, 7.2);
+    const controls = new OrbitControls(camera, canvas);
+    controls.enablePan = false;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.maxPolarAngle = Math.PI * 0.49;
+    controls.minDistance = 2.4;
+    controls.maxDistance = 14;
+    controls.target.set(0, 1.15, 0);
+
+    scene.add(new THREE.HemisphereLight('#e8eefc', '#3a2a1c', 0.7));
+    const sun = new THREE.DirectionalLight('#fff3df', 2.2);
+    sun.position.set(4.5, 9, 5);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    scene.add(sun);
+    scene.add(new THREE.DirectionalLight('#9bb7ff', 0.45)).position.set(-6, 3, -2);
+
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(24, 64),
+      new THREE.MeshStandardMaterial({ color: '#2a303c', roughness: 0.92 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+    const grid = new THREE.GridHelper(24, 24, '#3b4252', '#232833');
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    const keys = {};
+    addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+    });
+    addEventListener('keyup', (e) => { keys[e.code] = false; });
+    canvas.tabIndex = 0;
+    canvas.addEventListener('pointerdown', () => canvas.focus());
+
+    const loader = new GLTFLoader();
+    const loadGltf = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+
+    function findBone(obj, re) {
+      let found = null;
+      obj.traverse((o) => { if (!found && o.isBone && re.test(o.name)) found = o; });
+      return found;
+    }
+    function prep(sceneRoot) {
+      sceneRoot.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true;
+          o.receiveShadow = true;
+          if (o.material) {
+            const mats = Array.isArray(o.material) ? o.material : [o.material];
+            for (const m of mats) { m.envMapIntensity = 0.85; m.needsUpdate = true; }
+          }
+        }
+      });
+    }
+    function boneBase(name) { return String(name).replace(/^mixamorig:?/i, ''); }
+    function makeBoneRename(targetRoot) {
+      const names = new Set();
+      targetRoot.traverse((o) => { if (o.name) names.add(o.name); });
+      return (srcName) => {
+        if (names.has(srcName)) return srcName;
+        const base = boneBase(srcName);
+        if (names.has(base)) return base;
+        if (names.has('mixamorig' + base)) return 'mixamorig' + base;
+        if (names.has('mixamorig:' + base)) return 'mixamorig:' + base;
+        return null;
+      };
+    }
+    function retargetClip(clip, rename) {
+      const tracks = [];
+      for (const t of clip.tracks) {
+        const dot = t.name.lastIndexOf('.');
+        if (dot < 0) continue;
+        const bone = t.name.slice(0, dot);
+        const prop = t.name.slice(dot + 1);
+        if (prop !== 'quaternion') continue;
+        if (/head$/i.test(boneBase(bone))) continue;
+        if (/^hips$/i.test(boneBase(bone))) continue;
+        const mapped = rename(bone);
+        if (!mapped) continue;
+        const nt = t.clone();
+        nt.name = mapped + '.' + prop;
+        tracks.push(nt);
+      }
+      return new THREE.AnimationClip(clip.name + '-rt', clip.duration, tracks);
+    }
+    function fitModel(model) {
+      model.position.set(0, 0, 0);
+      model.rotation.set(0, 0, 0);
+      model.scale.set(1, 1, 1);
+      model.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      model.scale.setScalar(1.7 / Math.max(size.y, 0.001));
+      model.updateMatrixWorld(true);
+      box.setFromObject(model);
+      box.getCenter(center);
+      model.position.x += -center.x;
+      model.position.z += -center.z;
+      model.position.y += -box.min.y;
+      model.updateMatrixWorld(true);
+    }
+    function tintClothes(model, hex) {
+      const color = new THREE.Color(hex);
+      model.traverse((o) => {
+        if (!o.isMesh || !o.material) return;
+        if (!/outfit|top|shirt|bottom|pants|body/i.test(o.name)) return;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        const next = mats.map((m) => {
+          const c = m.clone();
+          c.color = color.clone();
+          return c;
+        });
+        o.material = Array.isArray(o.material) ? next : next[0];
+      });
+    }
+    function wrapPi(a) {
+      while (a > Math.PI) a -= Math.PI * 2;
+      while (a < -Math.PI) a += Math.PI * 2;
+      return a;
+    }
+    function cacheBoneRest(bone) {
+      if (!bone || bone.userData.restQuat) return;
+      bone.userData.restQuat = bone.quaternion.clone();
+      bone.userData.restPos = bone.position.clone();
+    }
+    function restoreBone(bone) {
+      if (!bone?.userData.restQuat) return;
+      bone.quaternion.copy(bone.userData.restQuat);
+      bone.position.copy(bone.userData.restPos);
+    }
+
+    const tmp = new THREE.Vector3();
+    const tmp2 = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    const wobbleQ = new THREE.Quaternion();
+    const wobbleE = new THREE.Euler(0, 0, 0, 'XZY');
+    const ragdoll = new THREE.Vector3();
+
+    const actors = [];
+    let player = null;
+    let soldierClips = [];
+
+    function attachLocomotion(actor, clips) {
+      const rename = makeBoneRename(actor.model);
+      actor.mixer = new THREE.AnimationMixer(actor.model);
+      const walkSrc = clips.find((c) => /walk/i.test(c.name));
+      const idleSrc = clips.find((c) => /idle/i.test(c.name));
+      if (walkSrc) {
+        actor.walkAction = actor.mixer.clipAction(retargetClip(walkSrc, rename));
+        actor.walkAction.play();
+        actor.walkAction.setEffectiveWeight(0);
+      }
+      if (idleSrc) {
+        actor.idleAction = actor.mixer.clipAction(retargetClip(idleSrc, rename));
+        actor.idleAction.play();
+        actor.idleAction.setEffectiveWeight(1);
+      }
+    }
+    function makeActor(model, { name, player: isPlayer, x, z, heading }) {
+      const root = new THREE.Group();
+      root.position.set(x, 0, z);
+      root.add(model);
+      scene.add(root);
+      const actor = {
+        name, player: !!isPlayer, root, model,
+        mixer: null, walkAction: null, idleAction: null,
+        heading: heading || 0,
+        vy: 0, jumpY: 0, grounded: true, mode: 'idle', tripTimer: 0,
+        wobble: { x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0 },
+        attach: new THREE.Vector3(),
+        attachPrev: new THREE.Vector3(),
+        attachVel: new THREE.Vector3(),
+        attachReady: false,
+        neck: findBone(model, /neck/i),
+        head: findBone(model, /head$/i),
+        wait: 0,
+        waypoint: null,
+      };
+      cacheBoneRest(actor.neck);
+      cacheBoneRest(actor.head);
+      root.rotation.y = actor.heading + FACE_OFFSET;
+      actors.push(actor);
+      if (isPlayer) player = actor;
+      return actor;
+    }
+    function pickWaypoint(actor) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 2.2 + Math.random() * 4.5;
+      actor.waypoint = new THREE.Vector3(Math.sin(a) * r, 0, Math.cos(a) * r);
+      actor.wait = 0;
+    }
+    function setState(name, label) {
+      stateEl.textContent = label || name;
+      stateEl.className = name === 'tripped' ? 'trip' : name === 'air' ? 'air' : '';
+      stateEl.id = 'state';
+    }
+    function snapCamera() {
+      if (!player) return;
+      tmp.set(player.root.position.x, 1.2, player.root.position.z);
+      controls.target.copy(tmp);
+      camera.position.set(tmp.x, tmp.y + 1.1, tmp.z + 6.2);
+      camera.lookAt(tmp);
+      controls.update();
+    }
+
+    function steerToward(actor, wish, dt, jumping) {
+      const moving = wish.lengthSq() > 1e-6;
+      if (moving) {
+        const target = Math.atan2(wish.x, wish.z);
+        const delta = wrapPi(target - actor.heading);
+        const maxTurn = TURN_SPEED * dt;
+        actor.heading += THREE.MathUtils.clamp(delta, -maxTurn, maxTurn);
+        const turn = Math.min(1, Math.abs(delta) / 1.35);
+        const speed = WALK_SPEED * (1 - 0.7 * turn);
+        actor.root.position.x += Math.sin(actor.heading) * speed * dt;
+        actor.root.position.z += Math.cos(actor.heading) * speed * dt;
+      }
+      actor.root.rotation.y = actor.heading + FACE_OFFSET;
+      return moving || Math.abs(wrapPi((moving ? Math.atan2(wish.x, wish.z) : actor.heading) - actor.heading)) > 0.12;
+    }
+
+    function stepActor(actor, dt, params) {
+      const { mass, hz, amp, travel, zeta, size, tripAt, omega } = params;
+      let wishX = 0, wishZ = 0;
+      let jumping = false;
+      if (actor.mode !== 'tripped') {
+        if (actor.player) {
+          let ix = 0, iz = 0;
+          if (keys.KeyW || keys.ArrowUp) iz -= 1;
+          if (keys.KeyS || keys.ArrowDown) iz += 1;
+          if (keys.KeyA || keys.ArrowLeft) ix -= 1;
+          if (keys.KeyD || keys.ArrowRight) ix += 1;
+          if (ix || iz) {
+            const camYaw = Math.atan2(
+              camera.position.x - actor.root.position.x,
+              camera.position.z - actor.root.position.z
+            );
+            tmp.set(ix, 0, iz).normalize().applyAxisAngle(tmp2.set(0, 1, 0), camYaw);
+            wishX = tmp.x; wishZ = tmp.z;
+          }
+          if (actor.grounded && keys.Space) { actor.vy = 5.1; actor.grounded = false; jumping = true; }
+        } else {
+          if (actor.wait > 0) {
+            actor.wait -= dt;
+          } else {
+            if (!actor.waypoint) pickWaypoint(actor);
+            tmp.set(actor.waypoint.x - actor.root.position.x, 0, actor.waypoint.z - actor.root.position.z);
+            if (tmp.length() < 0.55) {
+              actor.waypoint = null;
+              actor.wait = 0.5 + Math.random() * 1.6;
+            } else {
+              tmp.normalize();
+              wishX = tmp.x; wishZ = tmp.z;
+            }
+          }
+        }
+        actor.vy -= 14 * dt;
+        actor.jumpY += actor.vy * dt;
+        if (actor.jumpY <= 0) { actor.jumpY = 0; actor.vy = 0; actor.grounded = true; }
+        actor.root.position.y = actor.jumpY;
+        tmp.set(wishX, 0, wishZ);
+        const walking = steerToward(actor, tmp, dt) && actor.grounded;
+        if (!actor.grounded) actor.mode = 'air';
+        else if (walking) actor.mode = 'walk';
+        else actor.mode = 'idle';
+      } else {
+        actor.tripTimer -= dt;
+        actor.root.rotation.x = Math.min(actor.root.rotation.x + 2.8 * dt, Math.PI / 2.05);
+        if (actor.tripTimer <= 0) {
+          actor.root.rotation.x = 0;
+          actor.root.rotation.z = 0;
+          actor.root.rotation.y = actor.heading + FACE_OFFSET;
+          actor.mode = 'idle';
+          actor.wobble.x = actor.wobble.z = actor.wobble.y = 0;
+          actor.wobble.vx = actor.wobble.vz = actor.wobble.vy = 0;
+          actor.attachReady = false;
+        }
+      }
+
+      if (actor.walkAction && actor.idleAction) {
+        const w = actor.mode === 'walk' ? 1 : 0;
+        actor.walkAction.setEffectiveWeight(w);
+        actor.idleAction.setEffectiveWeight(1 - w);
+      }
+      actor.mixer?.update(actor.mode === 'tripped' ? dt * 0.12 : dt);
+
+      restoreBone(actor.head);
+      if (actor.head) actor.head.scale.setScalar(size);
+      actor.root.updateMatrixWorld(true);
+      if (actor.neck) {
+        actor.neck.getWorldPosition(actor.attach);
+        actor.attach.addScaledVector(up, 0.12 * size);
+      }
+
+      let accX = 0, accY = 0, accZ = 0;
+      if (!actor.attachReady) {
+        actor.attachPrev.copy(actor.attach);
+        actor.attachVel.set(0, 0, 0);
+        actor.attachReady = true;
+      } else {
+        tmp.copy(actor.attach).sub(actor.attachPrev).divideScalar(Math.max(dt, 1 / 120));
+        accX = (tmp.x - actor.attachVel.x) / Math.max(dt, 1 / 120);
+        accY = (tmp.y - actor.attachVel.y) / Math.max(dt, 1 / 120);
+        accZ = (tmp.z - actor.attachVel.z) / Math.max(dt, 1 / 120);
+        actor.attachVel.copy(tmp);
+        actor.attachPrev.copy(actor.attach);
+        if (Math.abs(accX) < 1.4) accX = 0;
+        if (Math.abs(accY) < 1.4) accY = 0;
+        if (Math.abs(accZ) < 1.4) accZ = 0;
+        accX = THREE.MathUtils.clamp(accX, -18, 18);
+        accY = THREE.MathUtils.clamp(accY, -18, 18);
+        accZ = THREE.MathUtils.clamp(accZ, -18, 18);
+      }
+
+      const drive = 0.14 * amp * (0.7 + mass * 0.35);
+      const w2 = omega * omega;
+      const drag = 2 * zeta * omega;
+      const maxAng = THREE.MathUtils.degToRad(12 + amp * 8);
+      const maxY = 0.08 + travel * 0.05;
+      const h = dt / 4;
+      if (actor.mode !== 'tripped') {
+        for (let i = 0; i < 4; i++) {
+          actor.wobble.vx += (-w2 * actor.wobble.x - drag * actor.wobble.vx + accZ * drive) * h;
+          actor.wobble.vz += (-w2 * actor.wobble.z - drag * actor.wobble.vz - accX * drive) * h;
+          actor.wobble.vy += (-w2 * actor.wobble.y - drag * actor.wobble.vy - accY * 0.08 * travel) * h;
+          actor.wobble.x += actor.wobble.vx * h;
+          actor.wobble.z += actor.wobble.vz * h;
+          actor.wobble.y += actor.wobble.vy * h;
+        }
+        if (Math.abs(actor.wobble.x) > maxAng) { actor.wobble.x = Math.sign(actor.wobble.x) * maxAng; if (actor.wobble.x * actor.wobble.vx > 0) actor.wobble.vx *= -0.4; }
+        if (Math.abs(actor.wobble.z) > maxAng) { actor.wobble.z = Math.sign(actor.wobble.z) * maxAng; if (actor.wobble.z * actor.wobble.vz > 0) actor.wobble.vz *= -0.4; }
+        if (Math.abs(actor.wobble.y) > maxY) { actor.wobble.y = Math.sign(actor.wobble.y) * maxY; if (actor.wobble.y * actor.wobble.vy > 0) actor.wobble.vy *= -0.4; }
+        const energy = Math.hypot(actor.wobble.x, actor.wobble.z, actor.wobble.y, actor.wobble.vx * 0.15, actor.wobble.vz * 0.15, actor.wobble.vy * 0.15);
+        if (energy < 0.018) {
+          actor.wobble.x = actor.wobble.z = actor.wobble.y = actor.wobble.vx = actor.wobble.vz = actor.wobble.vy = 0;
+        }
+      }
+      if (actor.mode !== 'tripped' && Math.hypot(actor.wobble.x, actor.wobble.z) > tripAt) {
+        actor.mode = 'tripped';
+        actor.tripTimer = 1.75;
+      }
+      wobbleE.set(actor.wobble.x * (0.85 + 0.12 * travel), 0, actor.wobble.z * (0.85 + 0.12 * travel));
+      wobbleQ.setFromEuler(wobbleE);
+      if (actor.mode !== 'tripped' && actor.head) {
+        actor.head.quaternion.multiply(wobbleQ);
+        actor.head.position.y += actor.wobble.y * 0.45;
+      }
+    }
+
+    document.getElementById('nudge').onclick = () => {
+      const amp = Number(sliders.amp.value);
+      const travel = Number(sliders.travel.value);
+      for (const a of actors) {
+        a.wobble.vx += (Math.random() - 0.5) * (3 + amp * 1.6);
+        a.wobble.vz += (Math.random() - 0.5) * (3 + amp * 1.6);
+        a.wobble.vy += (2.2 + travel * 1.4) * (Math.random() < 0.5 ? -1 : 1);
+      }
+    };
+    document.getElementById('reset').onclick = () => {
+      if (!player) return;
+      player.root.position.set(0, 0, 0);
+      player.heading = 0;
+      player.root.rotation.set(0, FACE_OFFSET, 0);
+      player.jumpY = 0; player.vy = 0; player.grounded = true; player.mode = 'idle';
+      player.wobble.x = player.wobble.z = player.wobble.y = 0;
+      player.wobble.vx = player.wobble.vz = player.wobble.vy = 0;
+      snapCamera();
+    };
+
+    function resize() {
+      const w = Math.max(1, canvas.clientWidth || innerWidth);
+      const h = Math.max(1, canvas.clientHeight || innerHeight);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
+    }
+    addEventListener('resize', resize);
+    new ResizeObserver(resize).observe(canvas);
+    resize();
+
+    try {
+      const [rpmG, michG, soldG] = await Promise.all([
+        loadGltf(URLS.rpm),
+        loadGltf(URLS.michelle),
+        loadGltf(URLS.soldier),
+      ]);
+      soldierClips = soldG.animations || [];
+      prep(rpmG.scene); fitModel(rpmG.scene);
+      prep(michG.scene); fitModel(michG.scene);
+      prep(soldG.scene); fitModel(soldG.scene);
+      const friend = cloneSkinned(rpmG.scene);
+      tintClothes(friend, '#355e3b');
+
+      const you = makeActor(rpmG.scene, { name: 'suit', player: true, x: 0, z: 0, heading: 0 });
+      const woman = makeActor(michG.scene, { name: 'michelle', x: 2.4, z: -1.6, heading: 1.2 });
+      const guard = makeActor(soldG.scene, { name: 'soldier', x: -2.6, z: -1.1, heading: -0.8 });
+      const pal = makeActor(friend, { name: 'green', x: 1.6, z: 2.2, heading: 2.5 });
+      for (const a of actors) attachLocomotion(a, soldierClips);
+      pickWaypoint(woman); pickWaypoint(guard); pickWaypoint(pal);
+      snapCamera();
+      loadEl.remove();
+      canvas.focus();
+    } catch (err) {
+      loadEl.textContent = 'Could not load people: ' + err.message;
+    }
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 1 / 30);
+      const params = {
+        mass: Number(sliders.mass.value),
+        hz: Number(sliders.hz.value),
+        amp: Number(sliders.amp.value),
+        travel: Number(sliders.travel.value),
+        zeta: Number(sliders.damp.value),
+        size: Number(sliders.size.value),
+        tripAt: Number(sliders.trip.value),
+        omega: Math.PI * 2 * Number(sliders.hz.value),
+      };
+      for (const a of actors) stepActor(a, dt, params);
+      if (player) {
+        setState(player.mode, player.mode === 'walk' ? 'Walk' : player.mode === 'air' ? 'Jump' : player.mode === 'tripped' ? 'Tripped' : 'Idle');
+        tmp.set(player.root.position.x, 1.2 + player.root.position.y, player.root.position.z);
+        controls.target.lerp(tmp, 1 - Math.pow(0.02, dt));
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

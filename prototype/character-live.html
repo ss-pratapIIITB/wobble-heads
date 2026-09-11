@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Wobble head live check</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1014; color: #f5f5f7; font-family: system-ui, -apple-system, sans-serif; }
+    #c { position: absolute; inset: 0; display: block; }
+    .hud {
+      position: absolute; top: 16px; left: 16px; width: 300px; z-index: 2;
+      background: rgba(18, 20, 26, 0.82); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px; padding: 14px 16px; backdrop-filter: blur(12px);
+    }
+    .hud h1 { font-size: 15px; margin: 0 0 4px; font-weight: 650; }
+    .hud p { margin: 0 0 12px; color: #a1a1aa; font-size: 12px; line-height: 1.45; }
+    label { display: flex; justify-content: space-between; font-size: 11px; color: #d4d4d8; margin-top: 8px; }
+    label span { color: #a1a1aa; font-variant-numeric: tabular-nums; }
+    input[type=range] { width: 100%; margin: 3px 0 0; }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    button {
+      flex: 1; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer;
+      background: #3b82f6; color: white; font-weight: 600; font-size: 12px;
+    }
+    button.ghost { background: #27272a; }
+    .status {
+      margin-top: 12px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+      color: #4ade80;
+    }
+    .status.trip { color: #fb7185; }
+    .status.air { color: #fbbf24; }
+    .choices {
+      position: absolute; right: 16px; bottom: 16px; z-index: 2; width: min(420px, calc(100vw - 32px));
+      display: grid; gap: 8px;
+    }
+    .choice {
+      background: rgba(18, 20, 26, 0.88); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 10px 12px; cursor: pointer;
+    }
+    .choice:hover, .choice.selected { border-color: #3b82f6; background: rgba(37, 99, 235, 0.18); }
+    .choice b { display: block; font-size: 13px; }
+    .choice span { color: #a1a1aa; font-size: 11px; }
+    .hint {
+      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+      z-index: 1; color: #d4d4d8; font-size: 12px; background: rgba(0,0,0,0.45);
+      padding: 6px 12px; border-radius: 999px; pointer-events: none;
+    }
+    #load {
+      position: absolute; inset: 0; display: grid; place-items: center; z-index: 3;
+      background: #0e1014; font-size: 14px; color: #a1a1aa;
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="load">Loading Mixamo X Bot…</div>
+  <canvas id="c"></canvas>
+  <div class="hud">
+    <h1>Mixamo X Bot — live wobble</h1>
+    <p>This is the pre-build we’ll edit in Blender. Click the stage, then walk. Crank mass or loosen the spring until they trip.</p>
+    <label>Head mass <span id="massV">2.4</span></label>
+    <input id="mass" type="range" min="0.4" max="8" step="0.1" value="2.4">
+    <label>Spring stiffness <span id="stiffV">38</span></label>
+    <input id="stiff" type="range" min="8" max="120" step="1" value="38">
+    <label>Damping <span id="dampV">4.2</span></label>
+    <input id="damp" type="range" min="0.2" max="12" step="0.1" value="4.2">
+    <label>Head size <span id="sizeV">1.8</span></label>
+    <input id="size" type="range" min="0.8" max="3.2" step="0.1" value="1.8">
+    <label>Trip distance <span id="tripV">0.55</span></label>
+    <input id="trip" type="range" min="0.25" max="1.2" step="0.05" value="0.55">
+    <div class="row">
+      <button id="nudge">Nudge head</button>
+      <button id="reset" class="ghost">Reset</button>
+    </div>
+    <div id="state" class="status">Idle</div>
+  </div>
+  <div class="choices">
+    <div class="choice" data-choice="xbot-sphere" onclick="toggleSelect(this)">
+      <b>A — This look</b>
+      <span>Grey Mixamo body, swapped-on wobble head. Our Blender starting point.</span>
+    </div>
+    <div class="choice" data-choice="clothed" onclick="toggleSelect(this)">
+      <b>B — Clothed Mixamo character</b>
+      <span>Same rig and animations, but a dressed human instead of the grey dummy.</span>
+    </div>
+    <div class="choice" data-choice="mascot" onclick="toggleSelect(this)">
+      <b>C — Toy / mascot head</b>
+      <span>Even bigger cartoon head from the start, still on this Mixamo body.</span>
+    </div>
+  </div>
+  <div class="hint">WASD walk · Space jump · mouse drag orbit</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const canvas = document.getElementById('c');
+    const loadEl = document.getElementById('load');
+    const stateEl = document.getElementById('state');
+    const sliders = {
+      mass: document.getElementById('mass'),
+      stiff: document.getElementById('stiff'),
+      damp: document.getElementById('damp'),
+      size: document.getElementById('size'),
+      trip: document.getElementById('trip'),
+    };
+
+    for (const [id, el] of Object.entries(sliders)) {
+      const label = { mass: 'massV', stiff: 'stiffV', damp: 'dampV', size: 'sizeV', trip: 'tripV' }[id];
+      el.addEventListener('input', () => { document.getElementById(label).textContent = el.value; });
+    }
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#141820');
+    scene.fog = new THREE.Fog('#141820', 12, 42);
+
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 80);
+    camera.position.set(0, 1.7, 5.2);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.enablePan = false;
+    controls.maxPolarAngle = Math.PI * 0.49;
+    controls.minDistance = 2.4;
+    controls.maxDistance = 9;
+    controls.target.set(0, 1.1, 0);
+    let orbiting = false;
+    controls.addEventListener('start', () => { orbiting = true; });
+    controls.addEventListener('end', () => { orbiting = false; });
+
+    scene.add(new THREE.HemisphereLight('#c9d6ff', '#3d2a1a', 1.1));
+    const sun = new THREE.DirectionalLight('#fff4e0', 1.8);
+    sun.position.set(6, 10, 4);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    scene.add(sun);
+
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(24, 48),
+      new THREE.MeshStandardMaterial({ color: '#2a303c', roughness: 0.95 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const grid = new THREE.GridHelper(24, 24, '#3b4252', '#262b36');
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    for (const [x, z, h] of [[3.2, -1.4, 0.7], [-4.1, 2.2, 1.1], [1.8, 3.6, 0.45]]) {
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, h, 1.1),
+        new THREE.MeshStandardMaterial({ color: '#4b5568', roughness: 0.7 })
+      );
+      box.position.set(x, h / 2, z);
+      box.castShadow = true;
+      box.receiveShadow = true;
+      scene.add(box);
+    }
+
+    const keys = {};
+    addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+    });
+    addEventListener('keyup', (e) => { keys[e.code] = false; });
+    canvas.addEventListener('pointerdown', () => canvas.focus());
+    canvas.tabIndex = 0;
+
+    const MODEL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/models/gltf/Xbot.glb';
+
+    const root = new THREE.Group();
+    scene.add(root);
+
+    const headMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 32, 24),
+      new THREE.MeshStandardMaterial({ color: '#e8b89a', roughness: 0.45, metalness: 0.05 })
+    );
+    headMesh.castShadow = true;
+    scene.add(headMesh);
+    const nose = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 16, 12),
+      new THREE.MeshStandardMaterial({ color: '#d49274' })
+    );
+    nose.position.set(0, -0.05, 0.92);
+    headMesh.add(nose);
+
+    let mixer = null;
+    let idleAction = null;
+    let walkAction = null;
+    let neck = null;
+    let headBone = null;
+    let model = null;
+    const head = { pos: new THREE.Vector3(0, 1.7, 0), vel: new THREE.Vector3() };
+    const attach = new THREE.Vector3();
+    const tmp = new THREE.Vector3();
+    const tmp2 = new THREE.Vector3();
+    const zAxis = new THREE.Vector3(0, 0, 1);
+    const facing = new THREE.Vector3(0, 0, 1);
+    let yaw = 0;
+    let vy = 0;
+    let grounded = true;
+    let mode = 'idle';
+    let tripTimer = 0;
+    let ragdollSpin = new THREE.Vector3();
+    const camOffset = new THREE.Vector3();
+
+    function clipByName(clips, re) {
+      return clips.find((c) => re.test(c.name)) || null;
+    }
+
+    function findBone(obj, re) {
+      let found = null;
+      obj.traverse((o) => {
+        if (!found && o.isBone && re.test(o.name)) found = o;
+      });
+      return found;
+    }
+
+    function setState(name, extra) {
+      mode = name;
+      stateEl.textContent = extra || name;
+      stateEl.className = 'status' + (name === 'tripped' ? ' trip' : name === 'air' ? ' air' : '');
+    }
+
+    function resetPose() {
+      root.position.set(0, 0, 0);
+      root.rotation.set(0, 0, 0);
+      yaw = 0;
+      vy = 0;
+      head.vel.set(0, 0, 0);
+      if (neck) {
+        neck.getWorldPosition(attach);
+        attach.y += 0.22 * Number(sliders.size.value);
+        head.pos.copy(attach);
+      }
+      setState('idle');
+    }
+
+    document.getElementById('reset').onclick = resetPose;
+    document.getElementById('nudge').onclick = () => {
+      head.vel.x += (Math.random() - 0.5) * 8;
+      head.vel.z += (Math.random() - 0.5) * 8;
+      head.vel.y += 2;
+    };
+
+    new GLTFLoader().load(MODEL, (gltf) => {
+      model = gltf.scene;
+      model.traverse((o) => {
+        if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+      });
+      root.add(model);
+
+      neck = findBone(model, /neck/i) || findBone(model, /head/i);
+      headBone = findBone(model, /head$/i);
+      if (headBone) headBone.scale.setScalar(0.05);
+
+      mixer = new THREE.AnimationMixer(model);
+      const idleClip = clipByName(gltf.animations, /idle/i);
+      const walkClip = clipByName(gltf.animations, /walk/i);
+      if (idleClip) idleAction = mixer.clipAction(idleClip);
+      if (walkClip) walkAction = mixer.clipAction(walkClip);
+      idleAction?.play();
+      walkAction?.play();
+      if (walkAction) walkAction.setEffectiveWeight(0);
+
+      neck?.getWorldPosition(head.pos);
+      head.pos.y += 0.35;
+      loadEl.remove();
+      canvas.focus();
+    }, undefined, (err) => {
+      loadEl.textContent = 'Could not load Mixamo X Bot, using a stand-in. ' + err.message;
+      const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.28, 0.9, 6, 12),
+        new THREE.MeshStandardMaterial({ color: '#8a8f99' })
+      );
+      body.position.y = 0.73;
+      body.castShadow = true;
+      root.add(body);
+      const dummy = new THREE.Object3D();
+      dummy.position.set(0, 1.42, 0);
+      root.add(dummy);
+      neck = dummy;
+      head.pos.set(0, 1.75, 0);
+      setTimeout(() => { loadEl.remove(); canvas.focus(); }, 600);
+    });
+
+    function resize() {
+      const w = innerWidth;
+      const h = innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
+    }
+    addEventListener('resize', resize);
+    resize();
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 1 / 30);
+      const mass = Number(sliders.mass.value);
+      const stiff = Number(sliders.stiff.value);
+      const damp = Number(sliders.damp.value);
+      const size = Number(sliders.size.value);
+      const tripAt = Number(sliders.trip.value);
+      headMesh.scale.setScalar(0.22 * size);
+
+      if (mode !== 'tripped') {
+        let ix = 0, iz = 0;
+        if (keys.KeyW || keys.ArrowUp) iz -= 1;
+        if (keys.KeyS || keys.ArrowDown) iz += 1;
+        if (keys.KeyA || keys.ArrowLeft) ix -= 1;
+        if (keys.KeyD || keys.ArrowRight) ix += 1;
+        const moving = ix !== 0 || iz !== 0;
+        if (moving) {
+          const camYaw = controls.getAzimuthalAngle();
+          const wish = tmp.set(ix, 0, iz).normalize().applyAxisAngle(tmp2.set(0, 1, 0), camYaw);
+          yaw = Math.atan2(wish.x, wish.z);
+          root.position.addScaledVector(wish, 2.7 * dt);
+          facing.copy(wish);
+        }
+        root.rotation.y = yaw;
+
+        if (grounded && keys.Space) {
+          vy = 5.2;
+          grounded = false;
+        }
+        vy -= 14 * dt;
+        root.position.y += vy * dt;
+        if (root.position.y <= 0) {
+          root.position.y = 0;
+          vy = 0;
+          grounded = true;
+        }
+
+        if (idleAction && walkAction) {
+          const w = moving && grounded ? 1 : 0;
+          walkAction.setEffectiveWeight(THREE.MathUtils.lerp(walkAction.getEffectiveWeight(), w, 1 - Math.pow(0.001, dt)));
+          idleAction.setEffectiveWeight(1 - walkAction.getEffectiveWeight());
+        }
+        mixer?.update(dt);
+
+        if (!grounded) setState('air', 'Jump');
+        else if (moving) setState('walk', 'Walk');
+        else setState('idle', 'Idle');
+      } else {
+        tripTimer -= dt;
+        root.rotation.x = Math.min(root.rotation.x + ragdollSpin.x * dt, Math.PI / 2);
+        root.rotation.z += ragdollSpin.z * dt;
+        root.position.addScaledVector(facing, 0.9 * dt);
+        if (root.position.y > 0.05) {
+          vy -= 14 * dt;
+          root.position.y = Math.max(0, root.position.y + vy * dt);
+        }
+        mixer?.update(dt * 0.15);
+        if (tripTimer <= 0) {
+          root.rotation.set(0, yaw, 0);
+          vy = 0;
+          grounded = true;
+          head.vel.set(0, 0, 0);
+          setState('idle', 'Got up');
+        }
+      }
+
+      root.updateMatrixWorld(true);
+      if (neck) {
+        neck.getWorldPosition(attach);
+        attach.addScaledVector(tmp.set(0, 1, 0), 0.18 * size);
+      }
+
+      const spring = tmp.copy(attach).sub(head.pos).multiplyScalar(stiff);
+      spring.y -= 9.2 * mass * 0.35;
+      const acc = spring.divideScalar(Math.max(mass, 0.15));
+      acc.addScaledVector(head.vel, -damp / Math.max(mass, 0.15));
+      head.vel.addScaledVector(acc, dt);
+      head.pos.addScaledVector(head.vel, dt);
+
+      if (mode !== 'tripped' && head.pos.distanceTo(attach) > tripAt) {
+        setState('tripped', 'Tripped — flopping');
+        tripTimer = 1.7;
+        ragdollSpin.set(2.8 + Math.random(), 0, (Math.random() - 0.5) * 2);
+        if (!grounded) facing.set(head.vel.x, 0, head.vel.z).normalize();
+      }
+
+      headMesh.position.copy(head.pos);
+      tmp.copy(head.pos).sub(attach);
+      if (tmp.lengthSq() > 1e-6) {
+        headMesh.quaternion.setFromUnitVectors(zAxis, tmp2.copy(tmp).normalize());
+      }
+
+      camOffset.set(0, 1.35, 4.4).applyAxisAngle(tmp.set(0, 1, 0), controls.getAzimuthalAngle());
+      controls.target.lerp(tmp.set(root.position.x, 1.15 + root.position.y, root.position.z), 1 - Math.pow(0.02, dt));
+      if (!orbiting) {
+        camera.position.lerp(
+          tmp2.copy(controls.target).add(camOffset),
+          1 - Math.pow(0.04, dt)
+        );
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
