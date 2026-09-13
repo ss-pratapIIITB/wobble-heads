@@ -1,0 +1,10 @@
+{
+  "captured": "2026-09-13 before performance revision",
+  "vehicles": [
+    {"type":"jeep","meshes":315,"triangles":86348},
+    {"type":"mini","meshes":178,"triangles":46800},
+    {"type":"sedan","meshes":170,"triangles":44536},
+    {"type":"hatch","meshes":170,"triangles":44536},
+    {"type":"van","meshes":174,"triangles":45736}
+  ]
+}
