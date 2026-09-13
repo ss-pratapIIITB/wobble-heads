@@ -4,8 +4,8 @@ const candidates=JSON.parse(readFileSync(new URL('../prototype/assets/candidates
 test('one catalog includes every current car, cast member and downloaded candidate',()=>{
  assert.equal(typeof review.buildReviewCatalog,'function');
  const all=review.buildReviewCatalog(candidates);
- assert.equal(all.length,13);assert.equal(new Set(all.map(i=>i.id)).size,13);
- assert.equal(all.filter(i=>i.kind==='landmark').length,1);assert.equal(all.filter(i=>i.kind==='car').length,6);assert.equal(all.filter(i=>i.kind==='human').length,6);
+ assert.equal(all.length,14);assert.equal(new Set(all.map(i=>i.id)).size,14);
+ assert.equal(all.filter(i=>i.kind==='landmark').length,2);assert.equal(all.filter(i=>i.kind==='car').length,6);assert.equal(all.filter(i=>i.kind==='human').length,6);
  assert.deepEqual(all.filter(i=>i.vehicle).map(i=>i.vehicle),['jeep','mini','sports','sedan','hatch','van']);
  assert.equal(all.filter(i=>i.origin==='Yard cast').length,4);assert.equal(all.some(i=>i.id==='candidate-suv'),false);
  for(const candidate of candidates.filter(c=>c.kind==='human'))assert.ok(all.some(i=>i.id==='candidate-'+candidate.id&&i.file===candidate.file));
@@ -19,7 +19,7 @@ test('gallery rendering clips partially visible tiles and skips hidden ones',()=
 test('environment catalog keeps all nine local CC0 asset packs in the review',()=>{
  const environment=JSON.parse(readFileSync(new URL('../prototype/assets/environment/catalog.json',import.meta.url)));
  const all=review.buildReviewCatalog(candidates,environment);
- assert.equal(all.length,22);assert.equal(new Set(all.map(i=>i.id)).size,22);
+ assert.equal(all.length,23);assert.equal(new Set(all.map(i=>i.id)).size,23);
  assert.equal(all.filter(i=>i.kind==='building').length,5);assert.equal(all.filter(i=>i.kind==='tree').length,4);
  for(const item of environment){
   const buffer=readFileSync(new URL('../prototype/assets/environment/'+item.file,import.meta.url));

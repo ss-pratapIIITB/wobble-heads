@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wobble Heads — all models</title>
-<link rel="stylesheet" href="./review.css">
+<link rel="stylesheet" href="./review.css?v=mbs-2">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
@@ -13,7 +13,7 @@
  <p id="load-status" role="status">Preparing models…</p>
 </header>
 <nav class="toolbar" aria-label="Review controls">
- <div class="filters" role="group" aria-label="Show models"><button data-filter="all" aria-pressed="true">All 22</button><button data-filter="car" aria-pressed="false">Cars 6</button><button data-filter="human" aria-pressed="false">People 6</button><button data-filter="landmark" aria-pressed="false">Landmarks 1</button><button data-filter="building" aria-pressed="false">Buildings 5</button><button data-filter="tree" aria-pressed="false">Trees 4</button></div>
+ <div class="filters" role="group" aria-label="Show models"><button data-filter="all" aria-pressed="true">All 23</button><button data-filter="car" aria-pressed="false">Cars 6</button><button data-filter="human" aria-pressed="false">People 6</button><button data-filter="landmark" aria-pressed="false">Landmarks 2</button><button data-filter="building" aria-pressed="false">Buildings 5</button><button data-filter="tree" aria-pressed="false">Trees 4</button></div>
  <label>People motion <select id="motion" aria-label="People motion"><option value="Idle">Idle</option><option value="Walk">Walk</option><option value="Back">Backward</option><option value="Run">Run</option></select></label>
  <label class="check"><input id="big-head" type="checkbox" checked> Large heads</label>
  <button id="pause" aria-pressed="false">Pause animation</button><button id="reset-views">Reset views</button>
@@ -22,10 +22,10 @@
  <p class="hint">Drag any model to rotate. Use its Turn button or arrow keys for another angle. Character motion plays in place for comparison.</p>
  <section id="buildings-section" aria-labelledby="buildings-title"><div class="section-heading"><h2 id="buildings-title">Architecture with character</h2><p>Heritage district · gables, belfries and open pavilions</p></div><div id="buildings" class="model-grid"></div></section>
  <section id="trees-section" aria-labelledby="trees-title"><div class="section-heading"><h2 id="trees-title">A greener world</h2><p>Four tree collections · compare silhouettes and canopy detail</p></div><div id="trees" class="model-grid"></div></section>
- <section id="landmarks-section" aria-labelledby="landmarks-title"><div class="section-heading"><h2 id="landmarks-title">Landmarks</h2><p>Singapore · Merlion fountain</p></div><div id="landmarks" class="model-grid"></div></section>
+ <section id="landmarks-section" aria-labelledby="landmarks-title"><div class="section-heading"><h2 id="landmarks-title">Landmarks</h2><p>Singapore · Marina Bay Sands &amp; Merlion fountain</p></div><div id="landmarks" class="model-grid"></div></section>
  <section id="cars-section" aria-labelledby="cars-title"><div class="section-heading"><h2 id="cars-title">Cars</h2><p>2 open cars · 1 racing coupe · 3 locked traffic designs</p></div><div id="cars" class="model-grid"></div></section>
  <section id="people-section" aria-labelledby="people-title"><div class="section-heading"><h2 id="people-title">Characters</h2><p>4 current cast members · 2 downloaded humans</p></div><div id="people" class="model-grid"></div></section>
  <p class="page-note">Both downloaded humans are now live NPCs. All cars shown here are original yard designs. <a href="../docs/ASSET-SOURCES.md">Asset sources &amp; integration notes</a></p>
 </main>
-<script type="module" src="./js/asset-review.js"></script>
+<script type="module" src="./js/asset-review.js?v=mbs-2"></script>
 </body></html>

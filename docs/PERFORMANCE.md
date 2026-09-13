@@ -96,3 +96,7 @@ Statue simplified from 412,672 to 80,000 triangles (about 81% fewer); indexed lo
 ## Environment review candidates
 
 Five buildings total about 2.03 MB: pavilion 698 triangles, house 3,024, inn 7,756, windmill 8,126, bell tower 11,799. Four tree packs total about 11.40 MB including embedded textures and 20 variants. The gallery displays one tree variant per card and renders only visible cards with its existing shared WebGL renderer. Packs are fetched in full on gallery load; GPU texture residency and foliage overdraw still need measurement before mass placement. The yard does not load these candidates.
+
+## Marina Bay Sands
+
+36,072 triangles across eight meshes/materials; repeated façade geometry is merged at construction. No textures, real-time reflections, transparent window layers or animation. Standalone GLB: 2,603,040 bytes. Gallery constructs the model once and skips rendering offscreen cards. Dimensions and finite geometry are covered by a test; target-device frame-time testing remains outstanding.

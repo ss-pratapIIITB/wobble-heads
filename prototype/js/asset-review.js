@@ -1,3 +1,4 @@
+import {createMarinaBaySands} from './marina-bay-sands.js';
 import {createMerlion} from './merlion.js';
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
@@ -20,7 +21,7 @@ function load(url){if(!loads.has(url))loads.set(url,loader.loadAsync(url));retur
 function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text)node.textContent=text;return node;}
 function link(parent,label,url){const a=element('a','',label);a.href=url;a.target='_blank';a.rel='noopener noreferrer';parent.append(a);}
 function makeCard(item){
- const card=element('article','model-card'),top=element('div','model-top'),title=element('div'),h=element('h3','',item.name);h.id=item.id;card.setAttribute('aria-labelledby',h.id);
+ const card=element('article',item.id==='marina-bay-sands'?'model-card landmark-hero':'model-card'),top=element('div','model-top'),title=element('div'),h=element('h3','',item.name);h.id=item.id;card.setAttribute('aria-labelledby',h.id);
  title.append(h,element('span','origin',item.origin));const turn=element('button','','Turn');turn.setAttribute('aria-label','Turn '+item.name);turn.disabled=true;top.append(title,turn);
  const view=element('div','model-view');view.tabIndex=0;view.setAttribute('role','img');view.setAttribute('aria-label',item.name+' 3D preview. Drag or use left and right arrows to rotate.');
  const loading=element('div','loading','Loading model…');view.append(loading);
@@ -33,8 +34,8 @@ function makeCard(item){
  const e={item,card,view,loading,info,budget,links,turn,scene,light,floor,camera:new T.PerspectiveCamera(39,1,.05,300),yaw:.72,pitch:.32,ready:false,clip:'auto'};entries.push(e);
  turn.onclick=()=>{e.yaw+=Math.PI/4;dirty=true;};
  let drag;
- view.addEventListener('pointerdown',event=>{drag={x:event.clientX};view.setPointerCapture(event.pointerId);});
- view.addEventListener('pointermove',event=>{if(!drag)return;e.yaw-=(event.clientX-drag.x)*.012;drag.x=event.clientX;dirty=true;});
+ view.addEventListener('pointerdown',event=>{drag={x:event.clientX,y:event.clientY};view.setPointerCapture(event.pointerId);});
+ view.addEventListener('pointermove',event=>{if(!drag)return;e.yaw-=(event.clientX-drag.x)*.012;e.pitch=T.MathUtils.clamp(e.pitch+(event.clientY-drag.y)*.006,-.05,1.05);drag.x=event.clientX;drag.y=event.clientY;dirty=true;});
  view.addEventListener('pointerup',()=>drag=null);view.addEventListener('pointercancel',()=>drag=null);
  view.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();e.yaw+=(event.key==='ArrowLeft'?1:-1)*Math.PI/8;dirty=true;});
  return e;
@@ -56,7 +57,8 @@ function environmentModel(e,index){
 async function populate(e){
  try{
   const item=e.item;let root;
-  if(item.kind==='landmark'){const asset=await load('./assets/merlion/merlion.glb');e.landmark=createMerlion(asset.scene.clone(true));root=e.landmark.root;}
+  if(item.id==='marina-bay-sands'){root=createMarinaBaySands().root;e.focusY=105;e.radius=490;e.camera.far=2000;}
+  else if(item.kind==='landmark'){const asset=await load('./assets/merlion/merlion.glb');e.landmark=createMerlion(asset.scene.clone(true));root=e.landmark.root;}
   else if(item.kind==='building'||item.kind==='tree'){
    const asset=await load('./assets/environment/'+item.file);e.environmentAsset=asset.scene;
    root=environmentModel(e,0);
@@ -82,6 +84,7 @@ async function populate(e){
   e.root=root;e.scene.add(root);root.updateMatrixWorld(true);
   e.radius??=item.kind==='landmark'?18:item.kind==='human'?3.65:Math.max(5.6,new T.Box3().setFromObject(root).getSize(new T.Vector3()).length()*1.08);
   e.budget.textContent=`${measure(root).toLocaleString()} triangles${item.bytes?' · '+Math.round(item.bytes/1024).toLocaleString()+' KB':''}${e.clips?.length?' · '+e.clips.length+' clips':''}`;
+  if(item.id==='marina-bay-sands'){const button=element('button','','SkyPark view');e.roofButton=button;button.onclick=()=>{e.roofView=!e.roofView;e.pitch=e.roofView?1.05:.32;e.focusY=e.roofView?190:105;e.radius=e.roofView?330:490;e.yaw=e.roofView?.12:.72;button.textContent=e.roofView?'Tower view':'SkyPark view';dirty=true;};e.links.append(button);}
   if(e.clips?.length){
    const label=element('label','clip-label','Animation'),select=element('select');select.setAttribute('aria-label',item.name+' animation');select.add(new Option('Follow shared controls','auto'));for(const clip of e.clips)select.add(new Option(clip.name,clip.name));label.append(select);e.info.append(label);select.onchange=()=>{e.clip=select.value;setClip(e);};
   }
@@ -111,7 +114,7 @@ function update(e,dt){
 }
 $('motion').onchange=()=>{for(const e of entries)setClip(e);dirty=true;};$('big-head').onchange=()=>dirty=true;
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Play animation':'Pause animation';$('pause').setAttribute('aria-pressed',String(paused));dirty=true;};
-$('reset-views').onclick=()=>{for(const e of entries)e.yaw=.72;dirty=true;};
+$('reset-views').onclick=()=>{for(const e of entries){e.yaw=.72;e.pitch=.32;if(e.roofButton){e.roofView=false;e.focusY=105;e.radius=490;e.roofButton.textContent='SkyPark view';}}dirty=true;};
 for(const button of document.querySelectorAll('[data-filter]'))button.onclick=()=>{
  for(const b of document.querySelectorAll('[data-filter]'))b.setAttribute('aria-pressed',String(b===button));
  for(const [kind,id] of [['car','cars-section'],['human','people-section'],['landmark','landmarks-section'],['building','buildings-section'],['tree','trees-section']])$(id).hidden=button.dataset.filter!=='all'&&button.dataset.filter!==kind;dirty=true;

@@ -53,3 +53,7 @@ Added cymon’s CC BY 4.0 Singapore Merlion ReSculpt, remixed from keeganTeo’s
 ## Buildings and trees
 
 Nine free Quaternius CC0 packs added to the shared gallery: five heritage buildings and four tree collections, each with five selectable variants. [Sources and file sizes](../prototype/assets/environment/CREDITS.md). Original embedded-texture GLBs are local; no runtime asset-host dependency.
+
+## Marina Bay Sands
+
+Original reference-based game model, not a downloaded asset. [References and limitations](../prototype/assets/marina-bay-sands/CREDITS.md). Includes a standalone GLB and reproducible export script.

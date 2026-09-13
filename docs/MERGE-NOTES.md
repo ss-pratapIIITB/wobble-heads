@@ -130,3 +130,7 @@ Keep `prototype/assets/merlion/` (including attribution), `prototype/js/merlion.
 ## Environment asset review — 2026-09-13
 
 Keep `prototype/assets/environment/` with the gallery changes in `asset-review.html`, `asset-review.js` and `review-catalog.js`. Catalog accepts an optional environment array and now renders 22 cards across five categories. Buildings/Trees filters and per-tree variant selectors are review-only; yard gameplay and loading cost are unchanged. Environment models are uniformly scaled to preview heights and centered using their bounds; original GLBs are unmodified.
+
+## Marina Bay Sands — 2026-09-13
+
+Keep the model module, `scripts/export-marina-bay-sands.mjs`, exported asset directory and landmark gallery changes together. Gallery now has 23 cards, two landmarks, an expanded MBS preview and SkyPark/Tower views. Vertical dragging controls elevation for all previews. Runtime uses the procedural factory; GLB is an equivalent reusable export. No yard placement yet. Existing three-tower hotel only, with simplified surroundings.
