@@ -56,3 +56,14 @@ test('impact begins in the current facing direction and buckles the legs asymmet
  const l=a.bones.LeftLeg.quaternion.angleTo(a.rest.find(x=>x.bone===a.bones.LeftLeg).q),r=a.bones.RightLeg.quaternion.angleTo(a.rest.find(x=>x.bone===a.bones.RightLeg).q);
  assert.ok(Math.abs(l-r)>.04,'knees should not collapse like a rigid symmetric hinge');
 });
+test('a punch advances the shoulder joint with torso rotation, not only the hand',async()=>{
+ const {poseStrike}=await import('../prototype/js/characters.js');
+ for(const side of ['Left','Right']){
+  const a=actor(),before=a.bones[side+'Arm'].getWorldPosition(new T.Vector3());
+  a.attack={kind:'cross',side,time:.37,heading:0};poseStrike(a);a.root.updateMatrixWorld(true);
+  const after=a.bones[side+'Arm'].getWorldPosition(new T.Vector3());
+  assert.ok(after.z-before.z>.035,'striking shoulder must advance');
+  assert.ok(Math.abs(a.bones.Spine.rotation.y)>.1,'torso drives the arm');
+  for(const name of ['LeftFoot','RightFoot'])assert.ok(Math.abs(a.bones[name].getWorldPosition(new T.Vector3()).y-.09)<.02,'feet remain near their planted height');
+ }
+});

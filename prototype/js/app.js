@@ -1,17 +1,18 @@
+import {PUNCH,startPunch,startRandomPunch,sweepPunch,receivePunch} from './boxing.js?v=boxing-single-1';
 import {createMerlion} from './merlion.js';
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {createVehicle} from './vehicles.js';
-import {prepareCharacter,createActor,poseWalking,poseBoarding,setHipWorld,poseReaction,poseStrike,poseAim} from './characters.js';
+import {prepareCharacter,createActor,poseWalking,poseBoarding,setHipWorld,poseReaction,poseStrike,poseAim,poseGuard} from './characters.js?v=boxing-shoulder-1';
 import {clamp,smooth,wrap,boardingPose,trafficGap,stepSprint} from './motion.js';
 import {batchRigidMeshes,renderQuality,FrameMeter} from './performance.js';
-import {chaseTarget,followYaw,segmentBox} from './camera.js';
+import {chaseTarget,followYaw,segmentBox,fightCameraTarget} from './camera.js?v=boxing-single-1';
 import {sweptVehicleHit,beginImpact,stepReaction,advanceImpulse} from './impacts.js';
 import {BloodEffects} from './effects.js';
 import {createNativeActor,poseNative} from './native-characters.js';
-import {PoliceSystem,dressPolice,updatePoliceAccessories} from './police.js';
+import {PoliceSystem,dressPolice,updatePoliceAccessories,coverFraction} from './police.js';
 import {PoliceIntro} from './police-intro.js';
 
 const $=id=>document.getElementById(id),V=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
@@ -107,7 +108,7 @@ for(const id of ['mass','hz','amp','size'])$(id).oninput=()=>{settings[id]=+$(id
 function reset(){
  if(!player)return;
  intro.cancel();introSeen=false;introReturning=false;introReturn=0;document.body.classList.remove('is-police-intro');
- police.reset(player);blood.clear();lastVictim=null;player.sprintTime=0;player.tripCooldown=0;$('death').hidden=true;
+ fightUntil=0;fightOpponent=null;police.reset(player);for(const a of actors){a.health=100;a.stamina=100;a.poise=0;a.hitstun=0;a.hurt=null;a.combatTarget=null;a.guard=false;a.attack=null;}blood.clear();lastVictim=null;player.sprintTime=0;player.tripCooldown=0;$('death').hidden=true;
  for(const a of actors)if(a.police){a.fireCooldown=.8;a.burstRemaining=0;a.recoil=0;a.flashTime=0;a.aiming=false;}
  const c=player.vehicle||player.board?.car;if(c){c.driver=null;c.speed=0;c.setDoor(0);}
  player.reaction=null;player.attack=null;player.hitCooldown=0;player.poseDirty=true;demoDrive=0;player.vehicle=null;player.board=null;player.mode='idle';player.speed=0;player.y=player.vy=0;player.grounded=true;player.heading=0;
@@ -220,6 +221,7 @@ function updateReaction(a,dt){
  }
  if(r.phase==='down'&&!r.groundBlood&&!r.trip){r.groundBlood=true;blood.burst(a.root.position.x+r.dx*.9,.08,a.root.position.z+r.dz*.9,r.dx*.2,r.dz*.2);}
  if(r.phase==='fleeing'){
+  a.combatTarget=null;a.guard=false;a.poise=0;a.health=Math.max(a.health??100,45);
   a.root.position.y=0;a.root.rotation.set(0,a.heading,0);
   const angle=Math.atan2(a.root.position.x-r.sourceX,a.root.position.z-r.sourceZ);
   const direction=V();
@@ -231,12 +233,21 @@ function updateReaction(a,dt){
  }
  return true;
 }
+let fightUntil=0,fightHeading=0,fightOpponent=null;
+function frameFight(opponent){if(elapsed>=fightUntil){fightHeading=player.heading;fightOpponent=null;}fightUntil=elapsed+2.5;fightOpponent=opponent||fightOpponent;cam.inspect=null;}
 function strike(){
- if(intro.active||introReturning||!player||player.dead||player.vehicle||player.board||player.reaction||player.attack)return;
- const direction=V(Math.sin(player.heading),0,Math.cos(player.heading));let target=null,nearestDistance=1.5;
- for(const a of actors){if(a===player||a.vehicle||a.board)continue;const dx=a.root.position.x-player.root.position.x,dz=a.root.position.z-player.root.position.z,d=Math.hypot(dx,dz);if(d<nearestDistance&&(dx*direction.x+dz*direction.z)/Math.max(d,.001)>.15){target=a;nearestDistance=d;}}
- const point=target?target.root.position.clone():player.root.position.clone().add(direction);point.y=1.18;
- player.attack={time:0,target,point,landed:false};player.poseDirty=true;
+ if(intro.active||introReturning||!player)return;
+ if(startRandomPunch(player)){const opponent=actors.filter(a=>a!==player&&!a.dead&&!a.vehicle&&a.root.position.distanceTo(player.root.position)<2.5).sort((a,b)=>a.root.position.distanceToSquared(player.root.position)-b.root.position.distanceToSquared(player.root.position))[0];frameFight(opponent);}
+}
+function resolvePunch(a,hit){
+ const target=hit.target;if(a.player||target.player)frameFight(a.player?target:a);const result=receivePunch(target,a,a.attack.kind);lastVictim=target;
+ if(a.player){if(!police.sparring)police.wanted=true;target.combatTarget=a;target.fightTime=8;}
+ if(!result.guarded)blood.burst(hit.point.x,hit.point.y,hit.point.z,result.dx*.35,result.dz*.35);
+ if(result.knockdown||target.health===0){
+  target.hitCooldown=0;target.poise=0;target.combatTarget=null;target.guard=false;
+  beginImpact(target,{x:result.dx,z:result.dz},a.attack.kind==='cross'?3.2:2.1,a.root.position);
+  if(target.player&&target.health===0){target.dead=true;target.mode='dead';}
+ }
 }
 function impactDemo(){
  if(!player||actors.length<2)return;reset();blood.clear();
@@ -248,6 +259,7 @@ function impactDemo(){
  target.y=target.vy=0;lastVictim=target;demoDrive=2.5;
 }
 $('impact-demo').onclick=impactDemo;
+$('boxing-demo').onclick=()=>{if(!player)return;reset();police.sparring=true;introSeen=true;const target=actors.find(a=>a!==player&&!a.police&&!a.native);if(!target)return;target.reaction=null;target.hitCooldown=0;target.root.position.copy(player.root.position).add(V(0,0,1));target.heading=Math.PI;target.root.rotation.y=Math.PI;target.wait=30;target.waypoint=null;target.poseDirty=true;lastVictim=target;};
 $('police-demo').onclick=()=>{if(!player)return;reset();const cop=actors.find(a=>a.police);if(cop){cop.reaction=null;cop.hitCooldown=0;cop.root.position.set(0,0,8.5);cop.heading=Math.PI;cop.root.rotation.set(0,Math.PI,0);cop.y=0;cop.fireCooldown=2;cop.poseDirty=true;}police.wanted=true;};
 $('restart').onclick=reset;
 $('sound').onclick=()=>{police.audio.enabled=!police.audio.enabled;$('sound').textContent=police.audio.enabled?'Sound on':'Sound off';$('sound').setAttribute('aria-pressed',String(police.audio.enabled));};
@@ -257,17 +269,30 @@ function stepActor(a,dt){
  if(a.dead){a.speed=0;return;}
  if(a.board){stepBoard(a,dt,settings);return;}
  if(a.vehicle){const c=a.vehicle;drive(c,dt);setHipWorld(a,c.seat.getWorldPosition(V()),c.heading);a.mode='seated';return;}
+ a.stamina=Math.min(100,(a.stamina??100)+dt*(a.attack?0:18));a.poise=Math.max(0,(a.poise||0)-dt*.13);
+ a.guard=a.player?!!keys.KeyQ&&!a.attack&&!a.hitstun:a.guard;
+ if(a.hurt){a.hurt.time-=dt;if(a.hurt.time<=0)a.hurt=null;}
+ if(a.hitstun>0){a.hitstun=Math.max(0,a.hitstun-dt);a.speed=0;a.poseDirty=true;
+  if(a.hurt){const next=V(a.root.position.x+a.hurt.x*dt*.7,a.root.position.y,a.root.position.z+a.hurt.z*dt*.7);if(canMoveActor(a.root.position,next))a.root.position.copy(next);}return;}
  if(a.attack){
-  a.attack.time+=dt;
-  if(!a.attack.landed&&a.attack.time>=.16){a.attack.landed=true;const target=a.attack.target;
-   if(target&&Math.hypot(target.root.position.x-a.root.position.x,target.root.position.z-a.root.position.z)<1.65&&beginImpact(target,{x:Math.sin(a.heading),z:Math.cos(a.heading)},2.4,a.root.position)){lastVictim=target;police.wanted=true;blood.burst(target.root.position.x,1.1,target.root.position.z,Math.sin(a.heading),Math.cos(a.heading));}}
-  if(a.attack.time>.42){a.attack=null;a.poseDirty=true;}
+  const previous=a.attack.time;a.attack.time+=dt;const hit=sweepPunch(a,previous,a.attack.time,actors,(from,to)=>coverFraction(from,to,[...cars,...traffic]));if(hit)resolvePunch(a,hit);
+  if(a.attack&&a.attack.time>PUNCH[a.attack.kind].duration){a.attack=null;a.poseDirty=true;}
+ }
+ if(!a.player&&a.combatTarget&&!a.combatTarget.dead){
+  a.fightTime-=dt;const enemy=a.combatTarget,d=a.root.position.distanceTo(enemy.root.position);
+  if(a.fightTime<=0||d>4){a.combatTarget=null;a.guard=false;}
+  else{a.heading=Math.atan2(enemy.root.position.x-a.root.position.x,enemy.root.position.z-a.root.position.z);a.root.rotation.y=a.heading;
+   a.counterTimer=(a.counterTimer??.85)-dt;a.guard=!a.attack&&a.counterTimer>.35;
+   if(d<1.18&&a.counterTimer<=0){startPunch(a,'jab');a.counterTimer=1.15;}
+   if(d>1.05&&!a.attack)moveActor(a,V(Math.sin(a.heading),0,Math.cos(a.heading)),dt,1.1);else a.speed=0;
+   a.poseDirty=true;return;
+  }
  }
  if(a.player){
   let forward=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0),turn=(keys.KeyA||keys.ArrowLeft?1:0)-(keys.KeyD||keys.ArrowRight?1:0);
   if(walkDemo>0){walkDemo-=dt;forward=walkDemo>5?1:walkDemo>2?-1:0;turn=0;}
   if(runDemo>0){runDemo-=dt;forward=1;turn=.45;}
-  const sprint=(keys.ShiftLeft||keys.ShiftRight||runDemo>0)&&a.grounded,speed=sprint?3.7:1.35;
+  const sprint=(keys.ShiftLeft||keys.ShiftRight||runDemo>0)&&a.grounded,speed=a.attack?.35:a.guard?.6:sprint?3.7:1.35;
   a.heading+=turn*2.6*dt;
   const next=V(a.root.position.x+Math.sin(a.heading)*forward*speed*dt,a.root.position.y,a.root.position.z+Math.cos(a.heading)*forward*speed*dt);
   a.speed=canMoveActor(a.root.position,next)?Math.abs(forward)*speed:0;if(a.speed)a.root.position.copy(next);
@@ -301,7 +326,9 @@ function updatePoses(dt){
   else if(a.reaction&&a.reaction.phase!=='fleeing')poseReaction(a,settings);
   else if(a.vehicle)poseBoarding(a,a.vehicle,boardingPose(1),settings,poseDt);
   else poseWalking(a,poseDt,settings);
-  if(a.attack)poseStrike(a,a.attack.point,a.attack.time/.42);
+  if(a.guard&&!a.reaction)poseGuard(a);
+  if(a.attack)poseStrike(a,a.attack.point,a.attack.time/PUNCH[a.attack.kind].duration);
+  if(a.hurt&&a.bones.Spine){a.bones.Spine.rotation.x-=Math.sin(a.hurt.time/.35*Math.PI)*.12;}
   if(a.police){if(a.aiming&&player){const target=a.aimTarget||player.root.position.clone().add(V(0,1.12,0));poseAim(a,target,{recoil:a.recoil||0,raise:intro.active?smooth(intro.progress/.65):1});}updatePoliceAccessories(a);}
  }
 }
@@ -326,6 +353,8 @@ function follow(dt){
  if(meter.active){
   camera.fov=45;cameraAnchor.set(0,0,-1.6);chaseTarget(cameraAnchor,-.45,false,1,cameraView);
   cameraView.x=-Math.sin(-.45)*10;cameraView.z=-1.6-Math.cos(-.45)*10;cameraView.y=6.2;cameraView.lookX=0;cameraView.lookY=1;cameraView.lookZ=-1.6;
+ }else if(!driving&&!player?.board&&!player?.dead&&elapsed<fightUntil){
+  camera.fov=50;fightCameraTarget(player.root.position,fightOpponent&&fightOpponent.root.position.distanceTo(player.root.position)<4?fightOpponent.root.position:null,fightHeading,camera.aspect,cameraView);
  }else if(cam.inspect){
   camera.fov=55;const target=cam.inspect.root.position,back=cam.back*Math.min(1.9,Math.max(1,.85/camera.aspect));
   Object.assign(cameraView,{x:target.x-Math.sin(cam.yaw)*back,y:cam.height,z:target.z-Math.cos(cam.yaw)*back,lookX:target.x,lookY:cam.inspect.lookHeight??.9,lookZ:target.z});
@@ -417,7 +446,7 @@ function animate(now){
   const prompt=player.board||player.reaction?'':c?(Math.abs(c.speed)>.15?'Release W / S to brake':'E · get out'):near?'E · enter '+near.name:'';
   text(ui.prompt,prompt);ui.prompt.hidden=!prompt;
   text(ui.readout,`Head tilt ${(Math.hypot(player.head.x,player.head.z)*180/Math.PI).toFixed(1)}° · ${player.mode} · ${c?(Math.abs(c.speed)*3.6).toFixed(0)+' km/h':'on foot'}`);
-  text(ui.impact,lastVictim?`${lastVictim.name}: ${lastVictim.reaction?({falling:'falling',down:'on the ground',gettingUp:'getting up',fleeing:'running away'}[lastVictim.reaction.phase]):'recovered'} · ${blood.active} blood drops`:'F · strike nearby person · or try the impact demo');
+  text(ui.impact,lastVictim?`${lastVictim.name}: ${lastVictim.reaction?({falling:'falling',down:'on the ground',gettingUp:'getting up',fleeing:'running away'}[lastVictim.reaction.phase]):'standing'} · ${Math.ceil(lastVictim.health??100)} health · stamina ${Math.round(player.stamina??100)}`:`F hit · Q guard · stamina ${Math.round(player.stamina??100)}`);
   text($('health'),`Health ${player.health}/100 · ${police.wanted?'Police hostile':'Police neutral'} · ${police.hits}/${police.shots} shots hit`);$('death').hidden=!player.dead;
   text(ui.render,`${Math.round(1000/Math.max(1,rawFrame))} FPS · ${renderer.info.render.triangles.toLocaleString()} triangles · ${renderer.info.render.calls} draws · ${quality.pixelRatio}× resolution`);
  }

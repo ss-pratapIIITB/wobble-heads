@@ -1,3 +1,4 @@
+import {bodyHit} from './boxing.js';
 import * as T from 'three';
 import {makeShot,shotHits,damagePlayer,resetHealth,stepBurst} from './combat.js';
 import {segmentBox} from './camera.js';
@@ -38,9 +39,9 @@ export function coverFraction(from,to,cars){
 function targetPoint(player,out){return out.set(player.root.position.x,player.root.position.y+(player.reaction?.phase==='down'?.32:1.12),player.root.position.z);}
 export class PoliceSystem{
  constructor(scene,blood,{random=Math.random}={}){this.wanted=false;this.blood=blood;this.shots=0;this.hits=0;this.effects=new GunEffects(scene);this.audio=new ShotAudio();this.random=random;}
- reset(player){this.wanted=false;this.shots=this.hits=0;resetHealth(player);this.effects.clear();}
+ reset(player){this.wanted=false;this.sparring=false;this.shots=this.hits=0;resetHealth(player);this.effects.clear();}
  findObserver(actors,player,cars){
-  if(!this.wanted||!player||player.dead)return null;
+  if(this.sparring||!this.wanted||!player||player.dead)return null;
   targetPoint(player,aimPoint);
   for(const cop of actors){if(!cop.police||cop.reaction||cop.board||cop.vehicle)continue;point.set(cop.root.position.x,1.48,cop.root.position.z);if(point.distanceTo(aimPoint)<=26&&coverFraction(point,aimPoint,cars)>.999)return cop;}
   return null;
@@ -51,20 +52,22 @@ export class PoliceSystem{
   if(!player||suspended)return;
   for(const cop of actors){if(!cop.police)continue;cop.aiming=false;
    const target=targetPoint(player,aimPoint).clone(),distance=cop.root.position.distanceTo(target);
-   const ready=this.wanted&&!player.dead&&!cop.reaction&&!cop.board&&!cop.vehicle&&distance<26;
+   const ready=!this.sparring&&this.wanted&&!player.dead&&!cop.reaction&&!cop.board&&!cop.vehicle&&!cop.attack&&!(cop.hitstun>0)&&distance<26&&coverFraction({x:cop.root.position.x,y:cop.root.position.y+1.4,z:cop.root.position.z},target,cars)>.999;
    if(!ready){stepBurst(cop,dt,false,this.random);continue;}
    cop.heading=Math.atan2(target.x-cop.root.position.x,target.z-cop.root.position.z);cop.root.rotation.y=cop.heading;cop.aiming=true;cop.aimTarget=target;cop.speed=0;cop.poseDirty=true;
    if(!stepBurst(cop,dt,true,this.random))continue;
    // Pose the arms before sampling the muzzle so shots originate at the weapon,
    // including the first frame of an encounter and throttled NPC pose updates.
    if(cop.bones.RightHand)poseAim(cop,target,{recoil:cop.recoil});updatePoliceAccessories(cop);
-   const origin=cop.muzzle.getWorldPosition(point).clone(),shot=makeShot(origin,target,this.random);let cover=coverFraction(origin,shot.end,cars);
+   const origin=cop.muzzle.getWorldPosition(point).clone(),barrelTarget=origin.clone().addScaledVector(cop.muzzle.getWorldDirection(new T.Vector3()),30),shot=makeShot(origin,barrelTarget,this.random,1+(cop.recoil||0)*1.2);let cover=coverFraction(origin,shot.end,cars);
    if(shot.end.y<0&&origin.y>0)cover=Math.min(cover,origin.y/(origin.y-shot.end.y));
-   const hit=shotHits(shot,target,cover);this.shots++;
-   const end=hit?target:{x:origin.x+(shot.end.x-origin.x)*cover,y:origin.y+(shot.end.y-origin.y)*cover,z:origin.z+(shot.end.z-origin.z)*cover};
+   let contact=null;for(const candidate of new Set([...actors,player])){if(candidate===cop||candidate.dead)continue;const entry=bodyHit(origin,shot.end,candidate);if(entry&&entry.fraction<cover&&(!contact||entry.fraction<contact.fraction))contact={...entry,actor:candidate};}
+   const hit=!!contact;this.shots++;
+   const end=hit?contact.point:{x:origin.x+(shot.end.x-origin.x)*cover,y:origin.y+(shot.end.y-origin.y)*cover,z:origin.z+(shot.end.z-origin.z)*cover};
    this.effects.shot(origin,end,!hit&&cover<1);this.audio.play(distance);cop.recoil=1;cop.flashTime=.045;cop.muzzleFlash.visible=true;
-   if(hit&&damagePlayer(player)){
-    this.hits++;this.blood.burst(target.x,target.y,target.z,Math.sin(cop.heading),Math.cos(cop.heading));
+   if(hit&&contact.actor!==player){const victim=contact.actor;victim.health=Math.max(1,(victim.health??100)-18);victim.attack=null;victim.hitstun=.45;victim.fireCooldown=.8;this.blood.burst(end.x,end.y,end.z,Math.sin(cop.heading)*.3,Math.cos(cop.heading)*.3);if(victim.health<35){victim.hitCooldown=0;beginImpact(victim,{x:Math.sin(cop.heading),z:Math.cos(cop.heading)},2.5,cop.root.position);}}
+   if(hit&&contact.actor===player&&damagePlayer(player)){
+    this.hits++;player.hurt={x:Math.sin(cop.heading),z:Math.cos(cop.heading),time:.35};this.blood.burst(end.x,end.y,end.z,Math.sin(cop.heading),Math.cos(cop.heading));
     if(player.dead){
      const car=player.vehicle||player.board?.car;if(car){car.speed=0;car.driver=null;car.setDoor(0);player.root.position.copy(car.board.getWorldPosition(point));}
      player.vehicle=null;player.board=null;player.attack=null;player.reaction=null;player.hitCooldown=0;

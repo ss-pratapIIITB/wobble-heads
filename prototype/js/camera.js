@@ -16,3 +16,14 @@ export function segmentBox(start,end,min,max){
  }
  return lo;
 }
+
+// Broadside framing shows both fighters' hands; callers keep the side stable
+// through a bout instead of flipping it with every turn or punch.
+export function fightCameraTarget(position,opponent,heading,aspect=1,out={}){
+ const other=opponent||{x:position.x+Math.sin(heading),y:position.y,z:position.z+Math.cos(heading)};
+ const gap=Math.min(3,Math.hypot(other.x-position.x,other.z-position.z));
+ const distance=(5.2+gap*.35)*Math.max(1,Math.min(1.8,1/Math.max(.3,aspect)));
+ out.lookX=(position.x+other.x)/2;out.lookZ=(position.z+other.z)/2;out.lookY=position.y+1.1;
+ out.x=out.lookX+Math.cos(heading)*distance;out.z=out.lookZ-Math.sin(heading)*distance;out.y=position.y+2.35;
+ return out;
+}

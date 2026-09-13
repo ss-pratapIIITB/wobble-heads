@@ -134,3 +134,13 @@ Keep `prototype/assets/environment/` with the gallery changes in `asset-review.h
 ## Marina Bay Sands — 2026-09-13
 
 Keep the model module, `scripts/export-marina-bay-sands.mjs`, exported asset directory and landmark gallery changes together. Gallery now has 23 cards, two landmarks, an expanded MBS preview and SkyPark/Tower views. Vertical dragging controls elevation for all previews. Runtime uses the procedural factory; GLB is an equivalent reusable export. No yard placement yet. Existing three-tower hotel only, with simplified surroundings.
+
+## Boxing and shooting contact — 2026-09-13
+
+Keep `boxing.js`, the character pose changes, app combat loop/controls, police ray changes and tests together. `attack` now uses `{kind, side, time, heading, landed}` instead of a preselected target and point. The physics and IK share `fistPoint`. NPC health/stamina/poise/hitstun/combatTarget reset with the yard. Boxing practice suppresses gunfire until reset. See [combat details and references](COMBAT-PHYSICS.md) for behavior and limitations. Prior Marina Bay Sands changes remain in this working tree.
+
+## Single-button combat and side camera
+
+F now calls `startRandomPunch`; G no longer attacks. Preserve camera helper `fightCameraTarget`, fight camera timing/opponent state, reset handling and updated controls. Attack duration, stamina and hitstun gates remain. Tests cover deterministic random choices, camera side orientation, midpoint framing and portrait distance.
+
+Shoulder follow-up: retain `punchDrive`, Left/RightShoulder bone discovery and the torso/hip/foot-preservation pass before hand IK. New camera/boxing exports use explicit browser cache versions to avoid mixing cached modules on reload.

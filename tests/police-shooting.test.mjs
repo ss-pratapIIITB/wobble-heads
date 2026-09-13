@@ -34,3 +34,16 @@ test('visible tracers start at the weapon muzzle and effect pools stay bounded',
  const count=scene.children.length;for(let i=0;i<100;i++)system.effects.shot({x:0,y:1,z:0},{x:1,y:0,z:2},true);
  assert.equal(scene.children.length,count);assert.equal(system.effects.sparks.length,32);system.effects.update(1);assert.equal(system.effects.mesh.visible,false);
 });
+test('hurt officers and opaque cover prevent firing',()=>{
+ for(const hurt of [true,false]){
+  const system=new PoliceSystem(new T.Scene(),{burst(){}},{random:()=>.5});system.wanted=true;
+  const cop={root:new T.Group(),bones:{}},player={root:new T.Group(),health:100};dressPolice(cop);cop.fireCooldown=0;cop.hitstun=hurt?.5:0;player.root.position.z=10;
+  const car={root:new T.Group(),heading:0,width:3,length:4};car.root.position.z=5;
+  system.update(1/60,[cop],player,hurt?[]:[car]);assert.equal(system.shots,0);assert.equal(player.health,100);
+ }
+});
+test('the first intervening body stops a shot before the player',()=>{
+ const system=new PoliceSystem(new T.Scene(),{burst(){}},{random:()=>.5});system.wanted=true;
+ const cop={root:new T.Group(),bones:{}},bystander={root:new T.Group(),health:100},player={root:new T.Group(),health:100};dressPolice(cop);cop.fireCooldown=0;bystander.root.position.z=4;player.root.position.z=10;
+ system.update(1/60,[cop,bystander],player,[]);assert.equal(system.shots,1);assert.equal(player.health,100);assert.equal(bystander.health,82);
+});

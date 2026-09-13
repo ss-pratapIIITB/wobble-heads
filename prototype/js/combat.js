@@ -4,9 +4,9 @@ export function damagePlayer(actor){
  if(actor.dead)return false;
  actor.shotsTaken=(actor.shotsTaken||0)+1;actor.health=Math.max(0,(actor.health??100)-18);actor.dead=actor.health===0;return true;
 }
-export function makeShot(origin,target,random=Math.random){
+export function makeShot(origin,target,random=Math.random,spread=1){
  const dx=target.x-origin.x,dy=target.y-origin.y,dz=target.z-origin.z;
- const yaw=Math.atan2(dx,dz)+(random()-.5)*.16,pitch=Math.atan2(dy,Math.hypot(dx,dz))+(random()-.5)*.10;
+ const yaw=Math.atan2(dx,dz)+(random()-.5)*.16*spread,pitch=Math.atan2(dy,Math.hypot(dx,dz))+(random()-.5)*.10*spread;
  const range=30;return {origin:{...origin},end:{x:origin.x+Math.sin(yaw)*Math.cos(pitch)*range,y:origin.y+Math.sin(pitch)*range,z:origin.z+Math.cos(yaw)*Math.cos(pitch)*range},range};
 }
 export function shotHits(shot,target,coverFraction=1,radius=.32){

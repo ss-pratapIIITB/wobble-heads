@@ -100,3 +100,7 @@ Five buildings total about 2.03 MB: pavilion 698 triangles, house 3,024, inn 7,7
 ## Marina Bay Sands
 
 36,072 triangles across eight meshes/materials; repeated façade geometry is merged at construction. No textures, real-time reflections, transparent window layers or animation. Standalone GLB: 2,603,040 bytes. Gallery constructs the model once and skips rendering offscreen cards. Dimensions and finite geometry are covered by a test; target-device frame-time testing remains outstanding.
+
+## Boxing and shot contact
+
+Analytic sphere queries avoid per-triangle skinned-mesh collision and add no physics runtime. Sweeps run only during a punch's active interval, subdivided at up to 12 ms for curved paths. Shot queries run only on trigger pulls. Existing pooled blood/tracer effects and bounded simulation substeps are retained. Cost scales with active punches × actor count; large crowds should add a spatial broad phase before scaling beyond the small yard cast.

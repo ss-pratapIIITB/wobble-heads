@@ -7,7 +7,7 @@
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
-<canvas id="c" tabindex="0" aria-label="Wobble Heads 3D sandbox. Use W and S to walk, A and D to turn, E to enter a nearby car, F to strike, Shift to run, and Space to jump."></canvas>
+<canvas id="c" tabindex="0" aria-label="Wobble Heads 3D sandbox. Use W and S to walk, A and D to turn, E to enter a nearby car, F to throw a random punch, hold Q to guard, Shift to run, and Space to jump."></canvas>
 <header class="hud">
  <h1>Wobble Heads<span>Vehicle yard</span></h1>
  <p id="status" role="status">Preparing the yard…</p>
@@ -22,7 +22,7 @@
  </details>
  <div class="actions"><button id="walk-demo" data-character disabled>Walk / back / stop</button><button id="reset" data-character disabled>Reset</button></div>
 <button id="run-demo" data-character disabled>Run / trip demo</button>
-<button id="impact-demo" data-character disabled>Car impact demo</button><button id="police-demo" data-character disabled>Police encounter</button><button id="sound" aria-pressed="true">Sound on</button><p id="impact-status" class="small">F · strike nearby person</p>
+<button id="boxing-demo" data-character disabled>Boxing practice</button><button id="impact-demo" data-character disabled>Car impact demo</button><button id="police-demo" data-character disabled>Police encounter</button><button id="sound" aria-pressed="true">Sound on</button><p id="impact-status" class="small">F · hit · hold Q · guard</p>
 </header>
 <aside class="fleet" aria-label="Vehicle inspection">
  <h2>Take a closer look</h2>
@@ -39,6 +39,6 @@
 <div id="death" hidden role="alert" aria-labelledby="death-title"><h2 id="death-title">You died</h2><p>Restart and try moving or using cars as cover.</p><button id="restart">Restart · R</button></div>
 <div id="load" role="status">Loading characters…</div>
 <div id="prompt" hidden></div>
-<footer><span><kbd>W S</kbd> move · <kbd>A D</kbd> turn</span><span><kbd>E</kbd> enter / exit</span><span><kbd>F</kbd> strike</span><span><kbd>Shift</kbd> run · <kbd>Space</kbd> jump</span><span>Drag to orbit · scroll to zoom</span></footer>
-<script type="module" src="./js/app.js"></script>
+<footer><span><kbd>W S</kbd> move · <kbd>A D</kbd> turn</span><span><kbd>E</kbd> enter / exit</span><span><kbd>F</kbd> hit · <kbd>Q</kbd> guard</span><span><kbd>Shift</kbd> run · <kbd>Space</kbd> jump</span><span>Drag to orbit · scroll to zoom</span></footer>
+<script type="module" src="./js/app.js?v=boxing-shoulder-1"></script>
 </body></html>

@@ -1,3 +1,4 @@
+import {fistPoint,punchDrive} from './boxing.js?v=boxing-shoulder-1';
 import * as T from 'three';
 import { stepHead, smooth, gaitSample } from './motion.js';
 const V=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
@@ -40,7 +41,7 @@ export function prepareCharacter(model){
 }
 export function createActor(model,{name,x=0,z=0,heading=0,player=false}){
  const root=new T.Group();root.add(model);root.updateMatrixWorld(true);
- const bones={};for(const name of ['Hips','Spine','Spine1','Neck','Head','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot','LeftArm','LeftForeArm','LeftHand','RightArm','RightForeArm','RightHand'])bones[name]=find(model,name);
+ const bones={};for(const name of ['Hips','Spine','Spine1','Neck','Head','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot','LeftShoulder','RightShoulder','LeftArm','LeftForeArm','LeftHand','RightArm','RightForeArm','RightHand'])bones[name]=find(model,name);
  const rest=[];model.traverse(o=>{if(o.isBone)rest.push({bone:o,q:o.quaternion.clone(),p:o.position.clone(),s:o.scale.clone()});});
  const local={};for(const [name,b] of Object.entries(bones))if(b)local[name]=b.getWorldPosition(V());
  const footQ={};for(const side of ['Left','Right'])footQ[side]=bones[side+'Foot']?.getWorldQuaternion(new T.Quaternion());
@@ -222,7 +223,22 @@ function poseRecovery(a,params){
  a.head.x=-.12*Math.sin(t*Math.PI);a.head.z=0;a.head.vx=a.head.vz=0;applyHead(a,params.size);
  a.gait=null;a.lastPoseKey=null;a.poseDirty=true;
 }
+export function poseGuard(a){
+ for(const [side,sign] of [['Left',1],['Right',-1]])poseHand(a,side,localWorld(a,V(sign*.19,1.29,.25)),localWorld(a,V(sign*.48,.95,.25)));
+}
 export function poseStrike(a,target,progress){
+ if(a.attack?.kind){
+  a.root.updateMatrixWorld(true);
+  const feet={};for(const side of ['Left','Right'])if(a.bones[side+'Foot'])feet[side]=a.bones[side+'Foot'].getWorldPosition(V());
+  const drive=punchDrive(a.attack,a.attack.time),hips=a.bones.Hips;
+  if(hips){const p=hips.getWorldPosition(V()).add(V(Math.sin(a.heading)*drive.shift,0,Math.cos(a.heading)*drive.shift));hips.position.copy(hips.parent.worldToLocal(p));hips.rotation.y+=drive.turn*.25;}
+  if(a.bones.Spine){a.bones.Spine.rotation.y+=drive.turn*.45;a.bones.Spine.rotation.x+=drive.lean;}
+  if(a.bones.Spine1)a.bones.Spine1.rotation.y+=drive.turn*.3;
+  const shoulder=a.bones[a.attack.side+'Shoulder'];if(shoulder){shoulder.rotation.y+=drive.shoulder;shoulder.rotation.z+=(a.attack.side==='Left'?1:-1)*drive.lean*.4;}
+  a.root.updateMatrixWorld(true);
+  for(const side of ['Left','Right'])if(feet[side])poseFoot(a,side,feet[side],localWorld(a,V(side==='Left'?.18:-.18,.5,.7)));
+  a.root.updateMatrixWorld(true);poseGuard(a);poseHand(a,a.attack.side,new T.Vector3().copy(fistPoint(a,a.attack.time)),localWorld(a,V(a.attack.side==='Left'?.5:-.5,1.02,.42)));a.poseDirty=true;return;}
+
  a.root.updateMatrixWorld(true);
  const weight=Math.sin(Math.min(1,progress)*Math.PI);
  const hand=a.bones.RightHand;if(!hand)return;
