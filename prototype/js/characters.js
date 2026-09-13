@@ -85,8 +85,18 @@ export function poseWalking(a,dt,params){
   g.feet[side]={stance:sample.stance&&a.grounded,contact:sample.contact,point:target.clone()};
   poseFoot(a,side,target,localWorld(a,V(sign*.16,.65,1)));
   const shoulder=a.local[side+'Arm'];
-  if(shoulder){const hand=V(shoulder.x+sign*.06,a.local.Hips.y+.02,shoulder.z-sample.z*g.weight*.68);
-   poseHand(a,side,localWorld(a,hand),localWorld(a,V(sign*.5,.9,-.5)));}
+  if(shoulder&&a.local[side+'ForeArm']&&a.local[side+'Hand']){
+   // Measure the rig instead of holding every hand at waist height. The arm
+   // swings as a relaxed pendulum; running retains a deliberate elbow bend.
+   const reach=shoulder.distanceTo(a.local[side+'ForeArm'])+a.local[side+'ForeArm'].distanceTo(a.local[side+'Hand']);
+   const swing=-Math.cos((a.phase+offset)*Math.PI*2)*(running?.58:.28)*g.weight;
+   const extension=.975-(running?.19:.02)*g.weight;
+   const offsetHand=V(sign*.04,-Math.cos(swing),Math.sin(swing)).normalize().multiplyScalar(reach*extension).applyQuaternion(a.root.quaternion);
+   const shoulderWorld=a.bones[side+'Arm'].getWorldPosition(V());
+   const hand=shoulderWorld.clone().add(offsetHand);
+   const pole=shoulderWorld.clone().add(V(sign*.14,-.28,-.22).applyQuaternion(a.root.quaternion));
+   poseHand(a,side,hand,pole);
+  }
  }
  stepHead(a.head,dt,moving?a.speed:0,params);applyHead(a,params.size);
 }
@@ -137,24 +147,26 @@ export function poseBoarding(a,car,p,params,dt){
 // actor's bind-facing space, so the same pose works across the three skeletons.
 export function poseReaction(a,params){
  const r=a.reaction;if(!r)return;
+ if(r.phase==='gettingUp'){poseRecovery(a,params);return;}
  a.gait=null;
  a.lastPoseKey=null;
- const falling=r.phase==='falling',rising=r.phase==='gettingUp';
+ const falling=r.phase==='falling';
  const fall=falling?smooth(r.time/r.fallTime):1;
- const rise=rising?smooth(r.time/1.45):0;
- const tilt=1.48*fall*(1-rise);
- a.heading=Math.atan2(r.dx,r.dz);
+ const tilt=1.48*fall;
+ const landingHeading=Math.atan2(r.dx,r.dz),startHeading=r.startHeading??landingHeading;
+ a.heading=startHeading+Math.atan2(Math.sin(landingHeading-startHeading),Math.cos(landingHeading-startHeading))*fall;
  a.root.rotation.set(0,a.heading,0);a.root.rotateX(tilt);
- a.root.rotateZ((r.roll||0)*fall*(1-rise)+Math.sin(fall*Math.PI)*.12*r.severity*(1-rise));
+ a.root.rotateZ((r.roll||0)*fall+Math.sin(fall*Math.PI)*.12*r.severity);
  a.root.position.y=(a.local.Hips?.y||.9)*(1-Math.cos(tilt))+(r.height||0);
  restoreActor(a);
  for(const [side,sign] of [['Left',1],['Right',-1]]){
   const f=a.local[side+'Foot'];if(!f)continue;
-  const crouch=(rising?Math.sin(rise*Math.PI):.35*fall)*(1-rise);
-  const foot=V(f.x*1.25,f.y+crouch*.34,f.z+fall*.10*(1-rise)+crouch*.18);
+  const crouch=.35*fall;
+  const buckle=Math.sin(fall*Math.PI)*(side==='Left'?.23:.08);
+  const foot=V(f.x*1.25,f.y+crouch*.34+buckle,f.z+fall*.10+crouch*.18+buckle*.65);
   poseFoot(a,side,localWorld(a,foot),localWorld(a,V(sign*.25,.55,1)));
   const shoulder=a.local[side+'Arm'];if(!shoulder)continue;
-  const brace=fall*(1-rise);
+  const brace=smooth(fall/.55);
   const hand=V(shoulder.x+sign*(.06+.16*brace),a.local.Hips.y+.02+.29*brace,.20*brace);
   poseHand(a,side,localWorld(a,hand),localWorld(a,V(sign*.65,1.08,-.12)));
  }
@@ -169,7 +181,46 @@ export function poseReaction(a,params){
   lowest=Math.min(lowest,bone.getWorldPosition(ik[11]).y-radius);
  }
  const ground=.015+(r.height||0);
- if(Number.isFinite(lowest))a.root.position.y+=(ground-lowest)*(lowest<ground?1:fall*(1-rise));
+ if(Number.isFinite(lowest))a.root.position.y+=(ground-lowest)*(lowest<ground?1:fall);
+}
+// Recovery starts from the actual settled fall. Hands support the chest first,
+// then one foot plants under the hips before the legs extend.
+function poseRecovery(a,params){
+ const r=a.reaction,t=Math.min(1,Math.max(0,r.time/1.45));
+ if(!r.recovery){
+  const phase=r.phase;r.phase='down';poseReaction(a,params);r.phase=phase;
+  a.root.updateMatrixWorld(true);
+  const points={};for(const name of ['Hips','LeftFoot','RightFoot','LeftHand','RightHand'])if(a.bones[name])points[name]=a.bones[name].getWorldPosition(V());
+  r.recovery={points,origin:V(a.root.position.x,0,a.root.position.z)};
+ }
+ const {points,origin}=r.recovery;
+ const heading=Math.atan2(r.dx,r.dz),toWorld=p=>p.applyAxisAngle(Y,heading).add(origin);
+ const blend=(a,b,start,end)=>a+(b-a)*smooth((t-start)/(end-start));
+ const push=smooth(t/.32),kneel=smooth((t-.25)/.35),stand=smooth((t-.6)/.4);
+ const hip=points.Hips?.clone()||toWorld(V(0,.3,.8));
+ hip.lerp(toWorld(V(0,.38,.65)),push).lerp(toWorld(V(0,.58,.12)),kneel).lerp(toWorld(a.local.Hips.clone()),stand);
+ const tilt=blend(blend(1.48,1.05,0,.32),.38,.25,.6)*(1-stand);
+ a.root.rotation.set(0,heading,0);a.root.rotateX(tilt);a.root.rotateZ((r.roll||0)*(1-push));
+ a.root.position.copy(hip).sub(a.local.Hips.clone().applyQuaternion(a.root.quaternion));
+ a.heading=heading;restoreActor(a);
+ for(const [side,sign] of [['Left',1],['Right',-1]]){
+  const f=a.local[side+'Foot'];if(!f)continue;
+  const planted=toWorld(V(f.x,f.y,side==='Left'?.38:-.18));
+  const step=smooth((t-(side==='Left'?.14:.04))/.35);
+  const foot=points[side+'Foot'].clone().lerp(planted,step);
+  foot.y+=Math.sin(step*Math.PI)*.12;
+  foot.lerp(toWorld(f.clone()),stand);
+  poseFoot(a,side,foot,toWorld(V(sign*.2,.35,.85)));
+  if(!points[side+'Hand'])continue;
+  const release=smooth((t-(side==='Left'?.48:.60))/.35);
+  const shoulder=a.local[side+'Arm'];
+  const reach=shoulder.distanceTo(a.local[side+'ForeArm'])+a.local[side+'ForeArm'].distanceTo(a.local[side+'Hand']);
+  const relaxed=shoulder.clone().add(V(sign*.04,-1,0).normalize().multiplyScalar(reach*.975));
+  const hand=points[side+'Hand'].clone().lerp(localWorld(a,relaxed),release);
+  poseHand(a,side,hand,toWorld(V(sign*.65,.4,.6)));
+ }
+ a.head.x=-.12*Math.sin(t*Math.PI);a.head.z=0;a.head.vx=a.head.vz=0;applyHead(a,params.size);
+ a.gait=null;a.lastPoseKey=null;a.poseDirty=true;
 }
 export function poseStrike(a,target,progress){
  a.root.updateMatrixWorld(true);
@@ -180,10 +231,18 @@ export function poseStrike(a,target,progress){
  a.poseDirty=true;
 }
 
-export function poseAim(a,target){
- const forward=target.clone().sub(a.root.position);forward.y=0;forward.normalize();
- const hand=a.root.position.clone().addScaledVector(forward,.58);hand.y=1.30;
- poseHand(a,'Right',hand,localWorld(a,V(-.45,1.1,.35)));
- poseHand(a,'Left',hand.clone().add(V(.05,-.04,0)),localWorld(a,V(.45,1.1,.35)));
+export function poseAim(a,target,{recoil=0,raise=1}={}){
+ const forward=target.clone().sub(a.root.position);forward.y=0;
+ if(forward.lengthSq()<1e-8)return;
+ forward.normalize();
+ // A world-space aim target must never pull the arms behind a stale body heading.
+ a.heading=Math.atan2(forward.x,forward.z);a.root.rotation.set(0,a.heading,0);
+ a.root.updateMatrixWorld(true);
+ const right=V(forward.z,0,-forward.x),weight=smooth(raise);
+ const hand=a.root.position.clone().addScaledVector(forward,.16+(.42-recoil*.075)*weight).addScaledVector(right,-.13);
+ hand.y=a.root.position.y+1.01+(.28+recoil*.04)*weight;
+ poseHand(a,'Right',hand,localWorld(a,V(-.45,1.08,.27)));
+ const support=hand.clone().addScaledVector(right,.065).addScaledVector(forward,.035);support.y-=.025;
+ poseHand(a,'Left',support,localWorld(a,V(.38,1.06,.23)));
  a.poseDirty=true;
 }

@@ -9,17 +9,18 @@
 <body>
 <canvas id="review-canvas" aria-hidden="true"></canvas>
 <header class="page-header">
- <div><a href="./index.html">Wobble Heads / return to the yard</a><h1>Cars &amp; characters</h1><p>Every current design and downloaded candidate, together for review.</p></div>
+ <div><a href="./index.html">Wobble Heads / return to the yard</a><h1>Cars, characters &amp; landmarks</h1><p>Every current design and downloaded candidate, together for review.</p></div>
  <p id="load-status" role="status">Preparing models…</p>
 </header>
 <nav class="toolbar" aria-label="Review controls">
- <div class="filters" role="group" aria-label="Show models"><button data-filter="all" aria-pressed="true">All 12</button><button data-filter="car" aria-pressed="false">Cars 6</button><button data-filter="human" aria-pressed="false">People 6</button></div>
+ <div class="filters" role="group" aria-label="Show models"><button data-filter="all" aria-pressed="true">All 13</button><button data-filter="car" aria-pressed="false">Cars 6</button><button data-filter="human" aria-pressed="false">People 6</button><button data-filter="landmark" aria-pressed="false">Landmarks 1</button></div>
  <label>People motion <select id="motion" aria-label="People motion"><option value="Idle">Idle</option><option value="Walk">Walk</option><option value="Back">Backward</option><option value="Run">Run</option></select></label>
  <label class="check"><input id="big-head" type="checkbox" checked> Large heads</label>
  <button id="pause" aria-pressed="false">Pause animation</button><button id="reset-views">Reset views</button>
 </nav>
 <main>
  <p class="hint">Drag any model to rotate. Use its Turn button or arrow keys for another angle. Character motion plays in place for comparison.</p>
+ <section id="landmarks-section" aria-labelledby="landmarks-title"><div class="section-heading"><h2 id="landmarks-title">Landmarks</h2><p>Singapore · Merlion fountain</p></div><div id="landmarks" class="model-grid"></div></section>
  <section id="cars-section" aria-labelledby="cars-title"><div class="section-heading"><h2 id="cars-title">Cars</h2><p>2 open cars · 1 racing coupe · 3 locked traffic designs</p></div><div id="cars" class="model-grid"></div></section>
  <section id="people-section" aria-labelledby="people-title"><div class="section-heading"><h2 id="people-title">Characters</h2><p>4 current cast members · 2 downloaded humans</p></div><div id="people" class="model-grid"></div></section>
  <p class="page-note">Both downloaded humans are now live NPCs. All cars shown here are original yard designs. <a href="../docs/ASSET-SOURCES.md">Asset sources &amp; integration notes</a></p>

@@ -91,4 +91,38 @@ This section supersedes the earlier candidate-only and 15-model gallery notes.
 
 Merge the new native/combat/police modules alongside `app.js`, `characters.js`, `motion.js`, `impacts.js`, vehicle changes, gallery catalog/viewer, both page HTML files and styles. Include new combat/native tests and extended gait/vehicle/review tests. Keep the two local human glTF files and Quaternius license. The existing imported cast still requires CDN access.
 
-Known limits: police use a torso target with spread and simplified vehicle cover boxes, not per-bone hitboxes or tactical navigation. Native civilian recovery reverses the source Death clip. Driving collisions remain yard approximations; there is no race timing/track system in this request. Extreme head tuning may still intersect windshield/hoop geometry.
+Known limits: police use a torso target with spread and simplified vehicle cover boxes, not per-bone hitboxes or tactical navigation. Native civilian recovery now blends into the forward grounded-to-standing half of Roll (see the aiming/recovery follow-up below). Driving collisions remain yard approximations; there is no race timing/track system in this request. Extreme head tuning may still intersect windshield/hoop geometry.
+
+## Police shooting and introductions — 2026-09-13
+
+- The blue head accessory is removed entirely. `dressPolice` now builds the badge and a sidearm with slide, grip, sights, barrel, muzzle marker and reusable flash geometry. `poseAim(actor,target,{recoil,raise})` provides a two-hand raised stance and visible recoil; it is shared with the gallery firing preview.
+- `stepBurst` in `combat.js` schedules three shots 0.18 s apart, then a 1.25–1.70 s recovery. The existing angular spread and 18-damage/six-hit rule remain. Shooting rays begin at the posed weapon muzzle, not the torso. Range remains 26 m for police engagement and 30 m for rays. Vehicle cover still uses simplified boxes.
+- `gun-effects.js` owns eight reusable tracer lines and 32 impact-spark instances. No light or particle object is created per shot. Synthetic shot audio uses Web Audio after a user gesture; the Sound on/off button mutes it. There are no downloaded sound dependencies.
+- `PoliceSystem.findObserver` requires a wanted, living player within range and a clear torso sightline. `app.js` starts the introduction on the first such sighting per reset/encounter, before police firing. Hostility is still triggered by player violence or Police encounter.
+- `police-intro.js` owns only presentation: one 3.6 s orbit, 32 instanced glitter particles, lower-third title and Skip overlay. `police-intro.css` is required by index.html. Reduced-motion preference selects a static 0.8 s reveal without glitter.
+- Main app owns simulation suspension, officer turn/draw/raise pose, one-shot encounter tracking, Escape/Skip, and the 0.6 s camera return. No world locomotion, traffic simulation, damage or firing advances during intro or return; the officer’s presentation pose still animates. Regular HUD is hidden while the orbit is active. Reset cancels the cinematic and clears encounter tracking. Keys are cleared at entry/skip; the intro does not repeatedly trigger during continuous hostility.
+- Cinematic camera uses the car obstruction check and returns from the actual rendered view. Preserve the final camera sample on natural completion and initialize it immediately on start for an immediate skip.
+- The review gallery provides Preview firing / Stop firing on the police card. This is a local visual preview and does not damage anybody.
+
+Merge together: app.js, characters.js, combat.js, police.js, gun-effects.js, police-intro.js, asset-review.js, index.html, style.css and police-intro.css, plus the new shooting/intro tests. This extends the prior racing/health work. Keep the intro free of combat ownership; its skip callback delegates cancellation and return blending to the main app.
+
+
+## Aiming and human recovery follow-up — 2026-09-13
+
+- Merge `characters.js`, `app.js`, `impacts.js`, `native-characters.js`, `tests/aim-recovery.test.mjs` and `tests/native-characters.test.mjs` together.
+- The intro previously kept the officer's wandering heading while IK reached toward a world-space target behind them. Intro heading now faces the player; `poseAim` also aligns the actor before solving either arm, covering ordinary combat and gallery previews.
+- Impacts retain `reaction.startHeading` and ease toward the landing direction instead of instantly turning the body. Unequal knee buckling and earlier arm bracing break up the rigid fall.
+- Procedural recovery caches settled contacts once on `reaction.recovery`, pushes the chest up, draws a leading foot under the hips, releases each hand separately, and extends to standing. Duration remains 1.45 seconds; death and player-trip state ownership are unchanged. Clear the whole reaction object on reset/new impact.
+- Quaternius rigs retain their native controls. Recovery blends the held Death endpoint into the forward latter half of Roll over 0.28 seconds, rather than reversing Death. Reused mixer action weights must be reset when selecting a new action.
+- No extra geometry, particles, physics engine or render passes. Cached recovery contact vectors exist only during the reaction; additional IK work is limited to recovering characters. Native recovery evaluates two clips during its brief transition.
+
+## Relaxed walking arms — 2026-09-13
+
+- Merge the `poseWalking` and recovery hand-target changes in `characters.js` with the new arm-proportion regression in `tests/gait.test.mjs`.
+- Removed fixed waist-height walking targets. Hand reach now scales to each rig's upper-arm + forearm length, with 95.5–97.5% extension and a smooth opposing pendulum swing. This gives a gentle elbow bend rather than folded arms. Running blends toward 78.5% extension and a larger swing.
+- Targets originate at the posed shoulder, accounting for gait pelvis lowering. Recovery finishes at the same relaxed hand position, avoiding a hand drop when idle resumes. Native animation clips and police aiming keep their own poses.
+- Verification: 61 tests passed, JavaScript syntax and diff checks passed. No extra meshes, materials or render passes.
+
+## Merlion landmark — 2026-09-13
+
+Keep `prototype/assets/merlion/` (including attribution), `prototype/js/merlion.js`, and `scripts/prepare-merlion.py` together. The yard loads it asynchronously at (-10, 0, -32), provides a Merlion inspection camera, and blocks character/car movement through its base and pool. The shared gallery now has 13 models and a Landmarks filter. Preserve the HUD landmark panel, catalog entry, gallery animation branch and collision hooks when merging. Source is a figurine resculpt, with game-added fountain and paving.

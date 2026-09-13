@@ -1,9 +1,10 @@
+import {createMerlion} from './merlion.js';
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {clone as cloneSkinned} from 'three/addons/utils/SkeletonUtils.js';
 import {createVehicle} from './vehicles.js';
-import {prepareCharacter,createActor,poseWalking} from './characters.js';
+import {prepareCharacter,createActor,poseWalking,poseAim} from './characters.js';
 import {dressPolice,updatePoliceAccessories} from './police.js';
 import {stepHead} from './motion.js';
 import {buildReviewCatalog,clipView} from './review-catalog.js';
@@ -25,7 +26,7 @@ function makeCard(item){
  const loading=element('div','loading','Loading model…');view.append(loading);
  const info=element('div','model-info'),budget=element('p','budget','Preparing…'),links=element('div','model-links');info.append(budget,element('p','',item.notes),links);
  if(item.source)link(links,'Source',item.source);if(item.licenseUrl)link(links,'License',item.licenseUrl);
- card.append(top,view,info);$(item.kind==='car'?'cars':'people').append(card);
+ card.append(top,view,info);$({car:'cars',human:'people',landmark:'landmarks'}[item.kind]).append(card);
  const scene=new T.Scene();scene.background=new T.Color('#bdcbb8');scene.environment=environment;scene.add(new T.HemisphereLight('#e4efff','#7a6953',1.15));
  const light=new T.DirectionalLight('#fff3df',2.1);scene.add(light,light.target);
  const floor=new T.Mesh(new T.PlaneGeometry(200,200),new T.MeshStandardMaterial({color:'#a4b399',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.025;scene.add(floor);
@@ -38,7 +39,7 @@ function makeCard(item){
  view.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();e.yaw+=(event.key==='ArrowLeft'?1:-1)*Math.PI/8;dirty=true;});
  return e;
 }
-function measure(root){let triangles=0;root.traverse(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;});return Math.round(triangles);}
+function measure(root){let triangles=0;root.traverse(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);});return Math.round(triangles);}
 function setClip(e){
  if(!e.mixer)return;const shared=$('motion').value,wanted=e.clip==='auto'?({Back:'Run_Back'}[shared]||shared):e.clip;
  e.mixer.stopAllAction();const clip=e.clips.find(c=>c.name===wanted)||e.clips.find(c=>c.name==='Idle');
@@ -47,7 +48,8 @@ function setClip(e){
 async function populate(e){
  try{
   const item=e.item;let root;
-  if(item.vehicle){e.car=createVehicle(item.vehicle);root=e.car.root;}
+  if(item.kind==='landmark'){const asset=await load('./assets/merlion/merlion.glb');e.landmark=createMerlion(asset.scene.clone(true));root=e.landmark.root;}
+  else if(item.vehicle){e.car=createVehicle(item.vehicle);root=e.car.root;}
   else{
    const asset=await load(item.rig?CDN+item.rig+'.glb':'./assets/candidates/'+item.file);const model=cloneSkinned(asset.scene);
    if(item.rig){prepareCharacter(model);e.actor=createActor(model,{name:item.name});root=e.actor.root;if(item.id==='yard-ranger')dressPolice(e.actor);poseWalking(e.actor,0,params);}
@@ -60,25 +62,32 @@ async function populate(e){
    }
   }
   e.root=root;e.scene.add(root);root.updateMatrixWorld(true);
-  e.radius=item.kind==='human'?3.65:Math.max(5.6,new T.Box3().setFromObject(root).getSize(new T.Vector3()).length()*1.08);
+  e.radius=item.kind==='landmark'?18:item.kind==='human'?3.65:Math.max(5.6,new T.Box3().setFromObject(root).getSize(new T.Vector3()).length()*1.08);
   e.budget.textContent=`${measure(root).toLocaleString()} triangles${item.bytes?' · '+Math.round(item.bytes/1024).toLocaleString()+' KB':''}${e.clips?.length?' · '+e.clips.length+' clips':''}`;
   if(e.clips?.length){
    const label=element('label','clip-label','Animation'),select=element('select');select.setAttribute('aria-label',item.name+' animation');select.add(new Option('Follow shared controls','auto'));for(const clip of e.clips)select.add(new Option(clip.name,clip.name));label.append(select);e.info.append(label);select.onchange=()=>{e.clip=select.value;setClip(e);};
   }
+  if(e.actor?.police){const button=element('button','','Preview firing');button.setAttribute('aria-pressed','false');button.onclick=()=>{e.previewFire=!e.previewFire;e.fireClock=0;button.textContent=e.previewFire?'Stop firing':'Preview firing';button.setAttribute('aria-pressed',String(e.previewFire));dirty=true;};e.links.append(button);}
   if(e.car?.playerUsable){const button=element('button','','Open door');button.setAttribute('aria-label','Open door on '+item.name);button.onclick=()=>{e.doorOpen=!e.doorOpen;e.car.setDoor(e.doorOpen?1:0);button.textContent=e.doorOpen?'Close door':'Open door';button.setAttribute('aria-label',button.textContent+' on '+item.name);dirty=true;};e.links.append(button);}
   e.ready=true;e.turn.disabled=false;e.loading.hidden=true;loadedCount++;dirty=true;
  }catch(error){e.loading.textContent='Model unavailable. Reload to retry.';e.budget.textContent='Could not load';failedCount++;console.error(e.item.name,error);}
  $('load-status').textContent=`${loadedCount} of ${entries.length} models ready${failedCount?' · '+failedCount+' unavailable':''}`;
 }
 function update(e,dt){
+ if(e.landmark){if(!paused)e.landmarkTime=(e.landmarkTime||0)+dt;e.landmark.update(e.landmarkTime||0);}
  if(e.actor){
   const motion=$('motion').value,a=e.actor,speed=motion==='Run'?3.7:motion==='Idle'?0:1.35;
   a.speed=speed;a.mode=motion==='Run'?'fleeing':speed?'walk':'idle';if(!paused)a.root.position.z+=speed*dt*(motion==='Back'?-1:1);
-  params.size=$('big-head').checked?2.1:1;if(e.headSize!==params.size){a.poseDirty=true;e.headSize=params.size;}if(!paused||a.poseDirty)poseWalking(a,paused?0:dt,params);if(a.police)updatePoliceAccessories(a,params.size);
+  params.size=$('big-head').checked?2.1:1;if(e.headSize!==params.size){a.poseDirty=true;e.headSize=params.size;}if(!paused||a.poseDirty)poseWalking(a,paused?0:dt,params);if(a.police){
+   a.aiming=!!e.previewFire;
+   if(e.previewFire){if(!paused)e.fireClock=(e.fireClock||0)+dt;const beat=e.fireClock%2.1,shot=beat<.54?beat%.18:1;a.recoil=Math.max(0,1-shot*10);a.flashTime=shot<.045?1:0;a.aimTarget=new T.Vector3(0,1.2,a.root.position.z+8);poseAim(a,a.aimTarget,{recoil:a.recoil});}
+   else{a.recoil=a.flashTime=0;}
+   updatePoliceAccessories(a);
+  }
  }else if(e.mixer){
   if(e.head&&e.headScale){e.head.scale.copy(e.headScale);if(e.headQ)e.head.quaternion.copy(e.headQ);}if(!paused)e.mixer.update(dt);if(e.head){e.headQ??=e.head.quaternion.clone();e.headQ.copy(e.head.quaternion);}if(e.head&&$('big-head').checked)e.head.scale.multiplyScalar(2.1);if(e.head&&!paused){e.wobble??={x:0,z:0,vx:0,vz:0,phase:0};stepHead(e.wobble,dt,$('motion').value==='Run'?3.7:$('motion').value==='Idle'?0:1.35,params);e.head.rotation.x+=e.wobble.x;e.head.rotation.z+=e.wobble.z;}
  }
- const z=e.actor?.root.position.z||0,y=e.item.kind==='human'?1.04:.75;
+ const z=e.actor?.root.position.z||0,y=e.item.kind==='landmark'?4.0:e.item.kind==='human'?1.04:.75;
  e.camera.position.set(Math.sin(e.yaw)*e.radius,y+Math.sin(e.pitch)*e.radius,z+Math.cos(e.yaw)*e.radius);e.camera.lookAt(0,y,z);
  e.floor.position.z=z;e.light.position.set(-3,7,z+5);e.light.target.position.set(0,0,z);
 }
@@ -87,7 +96,7 @@ $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Play anima
 $('reset-views').onclick=()=>{for(const e of entries)e.yaw=.72;dirty=true;};
 for(const button of document.querySelectorAll('[data-filter]'))button.onclick=()=>{
  for(const b of document.querySelectorAll('[data-filter]'))b.setAttribute('aria-pressed',String(b===button));
- $('cars-section').hidden=button.dataset.filter==='human';$('people-section').hidden=button.dataset.filter==='car';dirty=true;
+ for(const [kind,id] of [['car','cars-section'],['human','people-section'],['landmark','landmarks-section']])$(id).hidden=button.dataset.filter!=='all'&&button.dataset.filter!==kind;dirty=true;
 };
 function resize(){renderer.setSize(innerWidth,innerHeight,false);dirty=true;}addEventListener('resize',resize);addEventListener('scroll',()=>dirty=true,{passive:true});addEventListener('visibilitychange',()=>{previous=performance.now();dirty=true;});resize();
 function frame(now){
@@ -103,6 +112,6 @@ function frame(now){
 }requestAnimationFrame(frame);
 try{
  const response=await fetch('./assets/candidates/catalog.json');if(!response.ok)throw new Error('Catalog unavailable');const items=buildReviewCatalog(await response.json());
- for(const button of document.querySelectorAll('[data-filter]')){const kind=button.dataset.filter;button.textContent=(kind==='all'?'All':kind==='car'?'Cars':'People')+' '+items.filter(i=>kind==='all'||i.kind===kind).length;}
+ for(const button of document.querySelectorAll('[data-filter]')){const kind=button.dataset.filter;button.textContent=(kind==='all'?'All':kind==='car'?'Cars':kind==='landmark'?'Landmarks':'People')+' '+items.filter(i=>kind==='all'||i.kind===kind).length;}
  for(const item of items)makeCard(item);await Promise.all(entries.map(populate));
 }catch(error){$('load-status').textContent='Catalog unavailable. Run npm start and reload.';console.error(error);}

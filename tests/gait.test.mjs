@@ -63,3 +63,24 @@ test('fallen articulated bodies settle on the ground and repeat without drift',(
   poseReaction(a,params);assert.ok(Math.abs(a.root.position.y-y)<.001);
  }
 });
+
+test('walking arms hang with a relaxed elbow bend across rig proportions and gait phases',()=>{
+ for(const length of [.22,.32]){
+  const model=new T.Group(),hips=new T.Bone();hips.name='Hips';hips.position.y=1;model.add(hips);
+  for(const [side,sign] of [['Left',1],['Right',-1]]){
+   const make=(name,parent,x,y)=>{const b=new T.Bone();b.name=side+name;b.position.set(x,y,0);parent.add(b);return b;};
+   const arm=make('Arm',hips,sign*.2,.4),fore=make('ForeArm',arm,sign*length,0);make('Hand',fore,sign*length,0);
+   const leg=make('UpLeg',hips,sign*.13,0),shin=make('Leg',leg,0,-.43);make('Foot',shin,0,-.43);
+  }
+  const a=createActor(model,{name:'Arms'});a.speed=1.35;a.mode='walk';poseWalking(a,0,params);
+  for(let i=0;i<100;i++){
+   a.root.position.z+=1.35/60;poseWalking(a,1/60,params);a.root.updateMatrixWorld(true);
+   for(const side of ['Left','Right']){
+    const upper=a.bones[side+'Arm'].getWorldPosition(new T.Vector3()),elbow=a.bones[side+'ForeArm'].getWorldPosition(new T.Vector3()),hand=a.bones[side+'Hand'].getWorldPosition(new T.Vector3());
+    const bend=elbow.clone().sub(upper).angleTo(hand.clone().sub(elbow))*180/Math.PI;
+    assert.ok(bend>10&&bend<40,`relaxed walking elbow: ${bend.toFixed(1)} degrees`);
+    assert.ok(hand.y<upper.y-length*1.6,'hands hang near thighs rather than waist');
+   }
+  }
+ }
+});

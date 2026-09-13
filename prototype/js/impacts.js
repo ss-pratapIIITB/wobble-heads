@@ -16,7 +16,7 @@ export function sweptVehicleHit(car,from,to,point,radius=.28){
 export function beginImpact(actor,direction,speed,source){
  if(actor.dead||speed<.9||actor.vehicle||actor.board||actor.reaction&&actor.reaction.phase!=='fleeing'||actor.hitCooldown>0)return false;
  const length=Math.hypot(direction.x,direction.z)||1,dx=direction.x/length,dz=direction.z/length;
- actor.reaction={phase:'falling',time:0,height:0,vy:clamp(speed*.20,.3,1.8),roll:Math.sin((source.x||0)*7+(source.z||0)*3)*.24,fallTime:.7+clamp(speed/14)*.2,dx,dz,vx:dx*clamp(speed*.65,1,5.5),vz:dz*clamp(speed*.65,1,5.5),sourceX:source.x,sourceZ:source.z,severity:clamp(speed/8,.2,1),groundBlood:false};
+ actor.reaction={phase:'falling',time:0,startHeading:actor.heading||0,height:0,vy:clamp(speed*.20,.3,1.8),roll:Math.sin((source.x||0)*7+(source.z||0)*3)*.24,fallTime:.7+clamp(speed/14)*.2,dx,dz,vx:dx*clamp(speed*.65,1,5.5),vz:dz*clamp(speed*.65,1,5.5),sourceX:source.x,sourceZ:source.z,severity:clamp(speed/8,.2,1),groundBlood:false};
  actor.hitCooldown=3;actor.attack=null;actor.waypoint=null;actor.speed=0;actor.mode='falling';actor.poseDirty=true;return true;
 }
 export function stepReaction(actor,dt){

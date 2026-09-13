@@ -45,3 +45,7 @@ The Sketchfab findings above use the creator listing's published counts/license 
 4. Bring source license files and the shared PNG with model files. Run `npm test`: asset checks validate identity, counts, animations and referenced local files. The active gallery filters out archived cars; the live yard explicitly loads only the two human files.
 
 The immediate moonwalking fix is independent of asset choice: a prettier mesh does not fix a reversed foot cycle or a mismatch between stride and movement speed.
+
+## Singapore Merlion
+
+Added cymon’s CC BY 4.0 Singapore Merlion ReSculpt, remixed from keeganTeo’s scanned figurine. Full attribution, source links and modifications: [Merlion credits](../prototype/assets/merlion/CREDITS.md). This is a sculpted replica, not a survey of the monument.

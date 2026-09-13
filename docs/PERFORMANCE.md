@@ -84,3 +84,11 @@ Relative to the previous optimized versions, opaque locked traffic now removes h
 Each traffic model submits 14 mesh draws. Tint alone does not remove triangles: the savings come from omitted geometry and simpler opaque construction, which also avoids transparent window sorting. Six traffic instances save 52,104 vehicle triangles before counting the removed driver silhouettes. The new sports targa adds 11,548 triangles and the two new human NPCs add 11,982, so this pass still reduces geometric work overall at equivalent visibility. Camera view and shadows determine actual submitted counts.
 
 The shared renderer, pixel-ratio/shadow caps, distance-throttled NPC posing and pooled blood remain. Police tracers reuse four line geometries. Native humans each use one AnimationMixer; source animation data adds roughly 6.2 MB of transfer. Gallery car candidates are no longer loaded. The geometry benchmark compares against the original pre-optimization baseline, so its percentages differ from this incremental table. No FPS gain is inferred solely from triangle reductions.
+
+## Police presentation budget
+
+The introduction and shooting effects each use one fixed 32-instance sparkle/spark mesh. Eight tracer geometries and one flash group per officer are reused. The introduction freezes gameplay while its presentation clock runs, and returns control after a bounded camera blend. It respects reduced motion without orbiting or glitter. The shooting audio buffer is synthesized once and reused; transient audio nodes disconnect on completion. These additions do not introduce external textures, sounds, physics dependencies or dynamic shadow lights.
+
+## Merlion landmark
+
+Statue simplified from 412,672 to 80,000 triangles (about 81% fewer); indexed local GLB is 2,081,000 bytes including normals and cavity vertex colors. No textures or runtime ambient-occlusion pass. Fountain uses one fixed tube, 80 instanced droplets and three reused ripple meshes; animation reuses transforms and geometry. Loads independently of playable characters. Gallery triangle counts now include instance multiplicity. This is still a detailed landmark; target-device frame-time measurements and distance LOD remain future work.

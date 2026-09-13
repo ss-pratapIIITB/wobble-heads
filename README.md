@@ -12,18 +12,18 @@ A Three.js character and vehicle sandbox. Run `npm start` (or `python3 -m http.s
 - **Walk / back / stop:** walk forward for three seconds, backward for three, then stop so you can inspect foot contact and head settling.
 - **Character tuning:** head mass, cadence, strength, size, live tilt readout and slow-motion playback.
 - **Car impact demo:** a repeatable collision showing a fall, small blood effect, get-up and escape.
-- **Police encounter:** starts a repeatable hostile patrol encounter. Player violence also draws police fire. Shots have spread and vehicle cover blocks them. Six body hits cause death; **R / Restart** restores health and clears hostility.
+- **Police encounter:** introduces the officer with a glittering 3D camera orbit, then starts a hostile patrol encounter. **Skip / Escape** ends the introduction; combat pauses during it. Player violence also draws police fire. Three-shot sequences use two-hand aiming, recoil, muzzle flashes, brief tracers, impact sparks and synthetic sound. Shots have spread and vehicle cover blocks them. Use **Sound on/off** to mute. Six body hits cause death; **R / Restart** restores health and clears hostility.
 - **Performance:** quality presets, live rendering statistics and a five-second benchmark. Performance is the fast default.
 - **Pause traffic:** stop/resume the six NPC vehicles.
 - **Reset:** return the player to the courtyard; release the current car and close its door, including during boarding.
-- **Review all cars & characters:** opens [one comparison page](http://localhost:8080/prototype/asset-review.html) with all six vehicle designs and six character instances, including both downloaded humans now used as live NPCs. Rotate individual models, open the three playable-car doors, compare shared Idle/Walk/Backward/Run motion, toggle large heads, or pause. Downloaded humans also have individual clip menus. Source/license links and measured triangle counts accompany the models. See [asset recommendations and integration notes](docs/ASSET-SOURCES.md).
+- **Review all cars & characters:** opens [one comparison page](http://localhost:8080/prototype/asset-review.html) with all six vehicle designs and six character instances, including both downloaded humans now used as live NPCs. Rotate individual models, open the three playable-car doors, compare shared Idle/Walk/Backward/Run motion, toggle large heads, or pause. Downloaded humans also have individual clip menus; the police card has a firing preview. Source/license links and measured triangle counts accompany the models. See [asset recommendations and integration notes](docs/ASSET-SOURCES.md).
 
 ## Revised designs
 
 - Olive **Trail**: roofless Rubicon-inspired 4×4, seven-slot grille, round lights, chunky tires, flat fenders, exposed hinges, roll cage and rear spare.
 - Red **Coast**: roofless Mini-inspired cabrio, round light rings, curved trim, tan four-seat interior, chrome details and folded soft top.
 - **Veloce racing targa:** low, wide two-seat sports car with wedge nose, splitter, open roof center, fastback rear and opening door glass. Top speed 24 m/s (86 km/h), versus 8 m/s (29 km/h) for the original cars.
-- Two Quaternius civilian NPCs use native Walk/Run/Death clips with procedural head wobble; the Ranger is a police officer with cap, badge and gun.
+- Two Quaternius civilian NPCs use native Walk/Run/Death clips with procedural head wobble; the Ranger is a police officer with badge and sidearm.
 - Three NPC body styles: sedan, hatchback and delivery van, with opaque dark glass, wheels and lamps. Hidden interiors and driver silhouettes are omitted; these cars are locked to the player. They follow the outer loop and yield to obstacles ahead.
 - Walk motion uses actual signed travel distance: the stance foot stays planted while the lifted foot returns, including when backing up. Hands swing opposite the feet. A damped head spring responds to walking speed and mass; excitation ends on stopping, with an exact neutral pose after 0.45 seconds.
 - Boarding opens the front-hinged door, stages each foot into the cabin, lowers and turns the body into a car-specific seat, then closes the door. Exit reverses the sequence. Vehicles remain reserved and stationary throughout.

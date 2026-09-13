@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wobble Heads — vehicle yard</title>
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./police-intro.css">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
@@ -22,12 +22,14 @@
  </details>
  <div class="actions"><button id="walk-demo" data-character disabled>Walk / back / stop</button><button id="reset" data-character disabled>Reset</button></div>
 <button id="run-demo" data-character disabled>Run / trip demo</button>
-<button id="impact-demo" data-character disabled>Car impact demo</button><button id="police-demo" data-character disabled>Police encounter</button><p id="impact-status" class="small">F · strike nearby person</p>
+<button id="impact-demo" data-character disabled>Car impact demo</button><button id="police-demo" data-character disabled>Police encounter</button><button id="sound" aria-pressed="true">Sound on</button><p id="impact-status" class="small">F · strike nearby person</p>
 </header>
 <aside class="fleet" aria-label="Vehicle inspection">
  <h2>Take a closer look</h2>
- <p><a href="./asset-review.html" style="color:#d9e6ad;text-underline-offset:3px">Review all cars &amp; characters</a></p>
- <div class="choices"><button id="jeep" data-character disabled><span class="swatch olive"></span>Open 4×4</button><button id="mini" data-character disabled><span class="swatch red"></span>Cabrio</button><button id="sports" data-character disabled>Racing coupe</button></div>
+ <p><a href="./asset-review.html" style="color:#d9e6ad;text-underline-offset:3px">Review all models</a></p>
+ <div class="choices"><button id="jeep" data-character disabled><span class="swatch olive"></span>Open 4×4</button><button id="mini" data-character disabled><span class="swatch red"></span>Cabrio</button><button id="sports" data-character disabled>Racing coupe</button>
+<button id="merlion" disabled>Loading Merlion…</button></div>
+ <div id="landmark-info" hidden><h3>Singapore Merlion</h3><p>A sculpted replica with a flowing fountain. Drag to orbit; use W to return to your character.</p><p class="small">Sculpt: <a href="https://www.thingiverse.com/thing:5533885" target="_blank" rel="noopener">cymon</a> / keeganTeo · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></p></div>
  <h3 id="vehicle-name">Choose your drive.</h3>
  <p id="vehicle-description">Choose a car to inspect its cabin and try getting in.</p>
  <button id="interact" class="primary" data-character disabled>Get in · E</button>

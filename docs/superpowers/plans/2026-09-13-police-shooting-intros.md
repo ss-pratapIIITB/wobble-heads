@@ -1,0 +1,8 @@
+# Police shooting and introduction plan
+
+Use the existing Three.js gameplay/render architecture. User explicitly requested parallel implementation. Do not push or commit unless requested in this turn.
+
+- [x] Cinematic module: create police-intro.js with a 3.6 s one-orbit introduction, bounded instanced glitter/sparks, reusable geometry, responsive title/skip overlay, reduced-motion short introduction, cancellation/reset, and a .6 s return blend. It must not own gameplay simulation or health. Expose start(actor), update(dt), cancel(), active, actor, progress, camera(out) and overlay CSS separately. Parent integrates trigger/freeze/posing.
+- [x] Shooting: remove blue cap, build a recognizable sidearm with muzzle marker and flash, improve two-hand aiming/recoil, fire controlled three-shot bursts with recovery, use muzzle-origin rays and cover/notice checks, preserve spread and six-hit death. Add pooled impact sparks and browser-gesture-unlocked synthetic firing audio with a mute control.
+- [x] Integration: first clear police sighting of a wanted player starts the intro once per reset/encounter. Freeze gameplay during camera ownership, show officer drawing/raising the pistol and turning, prevent incoming damage, skip on button/Escape, restore chase camera smoothly; cancel safely on reset/death. Keep gallery compatible and give police an Aim/Fire preview.
+- [x] Tests: deterministic burst cadence, notice behind cover/range, no shots during intro, muzzle origin/effects bounds, intro duration/camera orbit/skip/reset, existing death and cover regressions. Browser-test intro, skip, shooting and gallery. Record controls, tuning and merge boundaries.

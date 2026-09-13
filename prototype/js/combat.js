@@ -14,3 +14,12 @@ export function shotHits(shot,target,coverFraction=1,radius=.32){
  const t=((target.x-a.x)*dx+(target.y-a.y)*dy+(target.z-a.z)*dz)/length2;
  return t>=0&&t<=Math.min(1,coverFraction)&&Math.hypot(a.x+dx*t-target.x,a.y+dy*t-target.y,a.z+dz*t-target.z)<=radius;
 }
+
+// Three quick trigger pulls, then a deliberate recovery beat. Simulation uses
+// bounded substeps; retaining timer overshoot keeps cadence stable across FPS.
+export function stepBurst(state,dt,ready,random=Math.random){
+ if(!ready){state.burstRemaining=0;state.fireCooldown=Math.max(state.fireCooldown||0,.45);return false;}
+ state.fireCooldown=(state.fireCooldown||0)-dt;if(state.fireCooldown>1e-8)return false;
+ if(!state.burstRemaining)state.burstRemaining=3;
+ state.burstRemaining--;state.fireCooldown+=state.burstRemaining?.18:1.25+random()*.45;return true;
+}
