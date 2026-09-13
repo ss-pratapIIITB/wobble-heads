@@ -92,3 +92,7 @@ The introduction and shooting effects each use one fixed 32-instance sparkle/spa
 ## Merlion landmark
 
 Statue simplified from 412,672 to 80,000 triangles (about 81% fewer); indexed local GLB is 2,081,000 bytes including normals and cavity vertex colors. No textures or runtime ambient-occlusion pass. Fountain uses one fixed tube, 80 instanced droplets and three reused ripple meshes; animation reuses transforms and geometry. Loads independently of playable characters. Gallery triangle counts now include instance multiplicity. This is still a detailed landmark; target-device frame-time measurements and distance LOD remain future work.
+
+## Environment review candidates
+
+Five buildings total about 2.03 MB: pavilion 698 triangles, house 3,024, inn 7,756, windmill 8,126, bell tower 11,799. Four tree packs total about 11.40 MB including embedded textures and 20 variants. The gallery displays one tree variant per card and renders only visible cards with its existing shared WebGL renderer. Packs are fetched in full on gallery load; GPU texture residency and foliage overdraw still need measurement before mass placement. The yard does not load these candidates.

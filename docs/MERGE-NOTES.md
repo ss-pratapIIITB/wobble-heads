@@ -126,3 +126,7 @@ Merge together: app.js, characters.js, combat.js, police.js, gun-effects.js, pol
 ## Merlion landmark — 2026-09-13
 
 Keep `prototype/assets/merlion/` (including attribution), `prototype/js/merlion.js`, and `scripts/prepare-merlion.py` together. The yard loads it asynchronously at (-10, 0, -32), provides a Merlion inspection camera, and blocks character/car movement through its base and pool. The shared gallery now has 13 models and a Landmarks filter. Preserve the HUD landmark panel, catalog entry, gallery animation branch and collision hooks when merging. Source is a figurine resculpt, with game-added fountain and paving.
+
+## Environment asset review — 2026-09-13
+
+Keep `prototype/assets/environment/` with the gallery changes in `asset-review.html`, `asset-review.js` and `review-catalog.js`. Catalog accepts an optional environment array and now renders 22 cards across five categories. Buildings/Trees filters and per-tree variant selectors are review-only; yard gameplay and loading cost are unchanged. Environment models are uniformly scaled to preview heights and centered using their bounds; original GLBs are unmodified.

@@ -49,3 +49,7 @@ The immediate moonwalking fix is independent of asset choice: a prettier mesh do
 ## Singapore Merlion
 
 Added cymon’s CC BY 4.0 Singapore Merlion ReSculpt, remixed from keeganTeo’s scanned figurine. Full attribution, source links and modifications: [Merlion credits](../prototype/assets/merlion/CREDITS.md). This is a sculpted replica, not a survey of the monument.
+
+## Buildings and trees
+
+Nine free Quaternius CC0 packs added to the shared gallery: five heritage buildings and four tree collections, each with five selectable variants. [Sources and file sizes](../prototype/assets/environment/CREDITS.md). Original embedded-texture GLBs are local; no runtime asset-host dependency.
